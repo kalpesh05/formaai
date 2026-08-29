@@ -1,0 +1,10 @@
+# Dependency directories
+node_modules/
+dist/
+build/
+.env
+.env.local
+.DS_Store
+
+# Local database volumes
+postgres_data/
