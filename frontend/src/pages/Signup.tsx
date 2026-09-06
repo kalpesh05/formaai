@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiRequest, setToken } from '../services/api';
-import { User, Lock, Mail, Loader, UserPlus } from 'lucide-react';
+import { User, Lock, Mail, Loader, UserPlus, Eye, EyeOff } from 'lucide-react';
 
 export default function Signup() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
     setError('');
     setLoading(true);
 
@@ -40,7 +45,7 @@ export default function Signup() {
             Forma AI
           </h2>
           <p className="mt-2 text-center text-sm text-slate-500">
-            Create an agency owner account to build AI agents
+            Start managing client AI chatbots in minutes
           </p>
         </div>
         
@@ -99,14 +104,25 @@ export default function Signup() {
                   <Lock size={18} />
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 block w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+                  className="pl-10 pr-10 block w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
                   placeholder="••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
+              <p className="mt-1 text-xs text-slate-400">
+                Minimum 8 characters recommended
+              </p>
             </div>
           </div>
 

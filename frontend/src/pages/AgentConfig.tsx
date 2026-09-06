@@ -1,11 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { apiRequest, getToken } from '../services/api';
+import { apiRequest, getToken, API_HOST } from '../services/api';
+import { useWorkspace } from '../context/WorkspaceContext';
 import { 
   Bot, Settings, Hammer, FileText, Code2, Save, Upload, 
-  Globe, AlertTriangle, Play, RefreshCw, Send, CheckCircle2, 
-  XCircle, Clock, ArrowLeft, Loader, Copy, Check
+  Globe, AlertTriangle, Play, RefreshCw, Send, 
+  ArrowLeft, Loader, Copy, Check, Trash2,
+  FileUp, X
 } from 'lucide-react';
+import Toggle from '../components/ui/Toggle';
+import Badge from '../components/ui/Badge';
+import Button from '../components/ui/Button';
+import Alert from '../components/ui/Alert';
 
 interface Agent {
   id: string;
@@ -43,7 +49,10 @@ interface ChatMessage {
 }
 
 export default function AgentConfig() {
-  const { agentId } = useParams();
+  const { wsId, agentId } = useParams();
+  const { workspaces } = useWorkspace();
+  const currentWs = workspaces.find(w => w.id === wsId);
+  const wsName = currentWs?.client_name || 'Workspace';
 
   const [activeTab, setActiveTab] = useState<'settings' | 'tools' | 'ingestion' | 'widget'>('settings');
   const [agent, setAgent] = useState<Agent | null>(null);
@@ -52,6 +61,7 @@ export default function AgentConfig() {
   
   const [loading, setLoading] = useState(true);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -60,11 +70,14 @@ export default function AgentConfig() {
   const [provider, setProvider] = useState('gemini');
   const [model, setModel] = useState('gemini-1.5-flash');
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [temperature, setTemperature] = useState(0.7);
 
   // Ingestion inputs
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [urlToScrape, setUrlToScrape] = useState('');
   const [ingestLoading, setIngestLoading] = useState(false);
+  const [deleteDsLoading, setDeleteDsLoading] = useState<string | null>(null);
 
   // Deploying state
   const [deployLoading, setDeployLoading] = useState(false);
@@ -100,6 +113,7 @@ export default function AgentConfig() {
       setProvider(data.llm_provider);
       setModel(data.llm_model);
       setSystemPrompt(data.config?.systemPrompt || '');
+      setTemperature(data.config?.temperature ?? 0.7);
       setTools(data.tools || []);
       setDataSources(data.data_sources || []);
     } catch (err: any) {
@@ -120,14 +134,33 @@ export default function AgentConfig() {
         name,
         llm_provider: provider,
         llm_model: model,
-        config: { systemPrompt }
+        config: { systemPrompt, temperature }
       });
       setAgent(updated);
+      setIsDirty(false);
       setSuccessMsg('Settings updated successfully.');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to update settings');
     } finally {
       setSaveLoading(false);
+    }
+  };
+
+  const handleDeleteDataSource = async (dsId: string) => {
+    if (!window.confirm('Are you sure you want to remove this data source? Its vector embeddings will also be permanently deleted.')) {
+      return;
+    }
+    setDeleteDsLoading(dsId);
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      await apiRequest(`/agents/${agentId}/data-sources/${dsId}`, 'DELETE');
+      setDataSources(prev => prev.filter(d => d.id !== dsId));
+      setSuccessMsg('Data source removed successfully.');
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to remove data source');
+    } finally {
+      setDeleteDsLoading(null);
     }
   };
 
@@ -153,7 +186,7 @@ export default function AgentConfig() {
     formData.append('file', fileToUpload);
 
     try {
-      const res = await fetch(`http://localhost:5000/api/v1/agents/${agentId}/data-sources/file`, {
+      const res = await fetch(`${API_HOST}/api/v1/agents/${agentId}/data-sources/file`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getToken()}`
@@ -218,7 +251,7 @@ export default function AgentConfig() {
 
   const handleCopyWidgetCode = () => {
     if (!agent?.api_key) return;
-    const code = `<script\n  src="http://localhost:5000/widget.js"\n  data-agent-id="${agent.id}"\n  data-agent-key="${agent.api_key}">\n</script>`;
+    const code = `<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${agent.id}"\n  data-agent-key="${agent.api_key}">\n</script>`;
     navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -274,16 +307,21 @@ export default function AgentConfig() {
   return (
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
       {/* Top Header navbar */}
-      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm">
+      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm flex-shrink-0">
         <div className="flex items-center gap-4">
           <Link 
             to="/"
             className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors"
+            title="Back to Overview"
           >
             <ArrowLeft size={18} />
           </Link>
           <div>
-            <span className="text-xs text-slate-400 font-semibold tracking-wider uppercase">Agent Config Wizard</span>
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold tracking-wider uppercase">
+              <Link to="/" className="hover:text-slate-600 transition-colors">Workspaces</Link>
+              <span>/</span>
+              <span className="text-slate-600">{wsName}</span>
+            </div>
             <h1 className="text-base font-bold text-slate-800 flex items-center gap-2">
               <Bot size={18} className="text-brand-600" />
               {agent?.name}
@@ -291,24 +329,19 @@ export default function AgentConfig() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${
-            agent?.status === 'live' 
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-              : 'bg-amber-50 text-amber-700 border border-amber-200'
-          }`}>
-            {agent?.status}
-          </span>
+        <div className="flex items-center gap-3">
+          <Badge status={agent?.status || 'draft'} />
           {agent?.status !== 'live' && (
-            <button
+            <Button
               onClick={handleDeployAgent}
-              disabled={deployLoading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-4 py-2 rounded shadow transition-colors flex items-center gap-1.5"
+              loading={deployLoading}
+              variant="primary"
+              size="sm"
+              icon={<Play size={12} />}
+              className="bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
             >
-              {deployLoading && <RefreshCw className="animate-spin" size={12} />}
-              <Play size={12} />
-              <span>Deploy Chatbot</span>
-            </button>
+              Deploy Chatbot
+            </Button>
           )}
         </div>
       </header>
@@ -359,24 +392,39 @@ export default function AgentConfig() {
         <main className="flex-1 bg-slate-50 overflow-y-auto p-8">
           <div className="max-w-4xl mx-auto space-y-6">
             
-            {successMsg && (
-              <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded text-sm text-emerald-700 flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-500" />
-                <span>{successMsg}</span>
-              </div>
+            {isDirty && (
+              <Alert 
+                type="warning"
+                action={
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="primary"
+                    onClick={handleSaveSettings}
+                    className="bg-amber-700 hover:bg-amber-800 text-white"
+                  >
+                    Save Changes
+                  </Button>
+                }
+              >
+                You have unsaved changes in Agent Settings.
+              </Alert>
             )}
-            
-            {errorMsg && (
-              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded text-sm text-red-700 flex items-center gap-2">
-                <AlertTriangle size={16} className="text-red-500" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
+
+            {successMsg && <Alert type="success">{successMsg}</Alert>}
+            {errorMsg && <Alert type="error">{errorMsg}</Alert>}
 
             {/* TAB 1: Agent Settings */}
             {activeTab === 'settings' && (
               <form onSubmit={handleSaveSettings} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
-                <h2 className="text-base font-bold text-slate-800 border-b border-slate-100 pb-3">Settings Configuration</h2>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h2 className="text-base font-bold text-slate-800">Settings Configuration</h2>
+                  {isDirty && (
+                    <span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                      Unsaved changes
+                    </span>
+                  )}
+                </div>
                 
                 <div className="grid grid-cols-2 gap-6">
                   <div>
@@ -385,7 +433,7 @@ export default function AgentConfig() {
                       type="text"
                       required
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => { setName(e.target.value); setIsDirty(true); }}
                       className="w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 text-sm"
                     />
                   </div>
@@ -396,6 +444,7 @@ export default function AgentConfig() {
                       onChange={(e) => {
                         setProvider(e.target.value);
                         if (e.target.value === 'gemini') setModel('gemini-1.5-flash');
+                        setIsDirty(true);
                       }}
                       className="w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 text-sm"
                     >
@@ -411,7 +460,7 @@ export default function AgentConfig() {
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Model Selection</label>
                     <select
                       value={model}
-                      onChange={(e) => setModel(e.target.value)}
+                      onChange={(e) => { setModel(e.target.value); setIsDirty(true); }}
                       className="w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 text-sm"
                     >
                       {provider === 'gemini' ? (
@@ -432,6 +481,28 @@ export default function AgentConfig() {
                       )}
                     </select>
                   </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-semibold text-slate-700">Creativity / Temperature</label>
+                      <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                        {temperature}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={temperature}
+                      onChange={(e) => { setTemperature(parseFloat(e.target.value)); setIsDirty(true); }}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-600 mt-2.5"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-400 mt-1.5">
+                      <span>Strict / Exact (0.0)</span>
+                      <span>Balanced (0.7)</span>
+                      <span>Creative (1.0)</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -442,21 +513,22 @@ export default function AgentConfig() {
                   <textarea
                     rows={8}
                     value={systemPrompt}
-                    onChange={(e) => setSystemPrompt(e.target.value)}
+                    onChange={(e) => { setSystemPrompt(e.target.value); setIsDirty(true); }}
                     className="w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 text-sm font-sans"
                     placeholder="You are an expert customer agent..."
                   />
                 </div>
 
                 <div className="flex justify-end pt-2 border-t border-slate-100">
-                  <button
+                  <Button
                     type="submit"
-                    disabled={saveLoading}
-                    className="bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm px-5 py-2.5 rounded shadow flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    loading={saveLoading}
+                    variant="primary"
+                    size="md"
+                    icon={<Save size={16} />}
                   >
-                    <Save size={16} />
-                    <span>Save Config</span>
-                  </button>
+                    Save Config
+                  </Button>
                 </div>
               </form>
             )}
@@ -488,19 +560,11 @@ export default function AgentConfig() {
                         </p>
                       </div>
                       
-                      {/* Toggle switch slider */}
-                      <button
-                        onClick={() => handleToggleTool(tool.id, tool.enabled)}
-                        className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors focus:outline-none ${
-                          tool.enabled ? 'bg-brand-600' : 'bg-slate-300'
-                        }`}
-                      >
-                        <div
-                          className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-200 ease-in-out ${
-                            tool.enabled ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
+                      <Toggle
+                        checked={tool.enabled}
+                        onChange={() => handleToggleTool(tool.id, tool.enabled)}
+                        aria-label={`Enable ${tool.tool_type.replace('_', ' ')}`}
+                      />
                     </div>
                   ))}
 
@@ -527,21 +591,66 @@ export default function AgentConfig() {
                     <p className="text-[11px] text-slate-400">
                       Supports DOCX, CSV, TXT, or PDF files. Embeddings will generate automatically.
                     </p>
-                    <div className="flex flex-col gap-3">
-                      <input
-                        type="file"
-                        accept=".txt,.pdf,.docx,.csv"
-                        onChange={(e) => setFileToUpload(e.target.files?.[0] || null)}
-                        className="text-xs file:bg-brand-50 file:text-brand-700 file:border-0 file:rounded file:px-2.5 file:py-1.5 file:font-semibold hover:file:bg-brand-100 cursor-pointer"
-                      />
-                      <button
-                        type="submit"
-                        disabled={!fileToUpload || ingestLoading}
-                        className="bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs px-3 py-2 rounded shadow transition-colors disabled:opacity-50"
-                      >
-                        Upload File
-                      </button>
+                    
+                    {/* Drag and drop zone */}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        if (e.dataTransfer.files?.[0]) {
+                          setFileToUpload(e.dataTransfer.files[0]);
+                        }
+                      }}
+                      className={`border-2 border-dashed rounded-lg p-4 text-center transition-all ${
+                        isDragging
+                          ? 'border-brand-500 bg-brand-50/60 ring-2 ring-brand-400/20'
+                          : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+                      }`}
+                    >
+                      {fileToUpload ? (
+                        <div className="flex items-center justify-between bg-white border border-brand-200 rounded-lg p-2.5 text-xs shadow-xs">
+                          <div className="flex items-center gap-2 truncate text-left">
+                            <FileUp size={16} className="text-brand-600 flex-shrink-0" />
+                            <div className="truncate">
+                              <div className="font-semibold text-slate-800 truncate">{fileToUpload.name}</div>
+                              <div className="text-[10px] text-slate-400">{(fileToUpload.size / 1024).toFixed(1)} KB</div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFileToUpload(null)}
+                            className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 ml-2"
+                            title="Remove selected file"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer block py-2">
+                          <FileUp size={24} className="mx-auto text-slate-400 mb-1.5" />
+                          <span className="text-xs font-semibold text-brand-600 hover:text-brand-700">Choose document</span>
+                          <span className="text-xs text-slate-500"> or drag &amp; drop</span>
+                          <div className="text-[10px] text-slate-400 mt-0.5">PDF, DOCX, TXT, CSV up to 10MB</div>
+                          <input
+                            type="file"
+                            accept=".txt,.pdf,.docx,.csv"
+                            onChange={(e) => setFileToUpload(e.target.files?.[0] || null)}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
                     </div>
+
+                    <button
+                      type="submit"
+                      disabled={!fileToUpload || ingestLoading}
+                      className="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs py-2 px-3 rounded shadow transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {ingestLoading && <Loader className="animate-spin" size={13} />}
+                      <span>{ingestLoading ? 'Uploading & Embedding...' : 'Upload & Process File'}</span>
+                    </button>
                   </form>
 
                   {/* Scrape URL Ingester */}
@@ -559,15 +668,16 @@ export default function AgentConfig() {
                         required
                         value={urlToScrape}
                         onChange={(e) => setUrlToScrape(e.target.value)}
-                        className="rounded border-slate-300 border px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                        className="rounded border-slate-300 border px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500"
                         placeholder="https://docs.acme.com/help"
                       />
                       <button
                         type="submit"
                         disabled={!urlToScrape.trim() || ingestLoading}
-                        className="bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs px-3 py-2 rounded shadow transition-colors disabled:opacity-50"
+                        className="bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs px-3 py-2 rounded shadow transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                       >
-                        Scrape Webpage
+                        {ingestLoading && <Loader className="animate-spin" size={13} />}
+                        <span>{ingestLoading ? 'Crawling...' : 'Scrape Webpage'}</span>
                       </button>
                     </div>
                   </form>
@@ -576,7 +686,7 @@ export default function AgentConfig() {
                 {/* 2. Ingestion Queue logs */}
                 <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h2 className="text-base font-bold text-slate-800">Crawl Data Sources</h2>
+                    <h2 className="text-base font-bold text-slate-800">Knowledge Base Sources</h2>
                     <button 
                       onClick={fetchAgentDetails}
                       className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
@@ -594,6 +704,7 @@ export default function AgentConfig() {
                           <th className="py-2.5">Name / Reference</th>
                           <th className="py-2.5">Queue Status</th>
                           <th className="py-2.5">Created At</th>
+                          <th className="py-2.5 text-right">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -604,28 +715,32 @@ export default function AgentConfig() {
                               {ds.source_ref}
                             </td>
                             <td className="py-3">
-                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                ds.status === 'processed' 
-                                  ? 'bg-emerald-50 text-emerald-700' 
-                                  : ds.status === 'failed' 
-                                  ? 'bg-red-50 text-red-700' 
-                                  : 'bg-amber-50 text-amber-700'
-                              }`}>
-                                {ds.status === 'processed' && <CheckCircle2 size={12} />}
-                                {ds.status === 'failed' && <XCircle size={12} />}
-                                {ds.status === 'pending' && <Clock size={12} className="animate-spin" />}
-                                <span className="capitalize">{ds.status}</span>
-                              </span>
+                              <Badge status={ds.status} size="sm" />
                             </td>
                             <td className="py-3 text-xs text-slate-400">
                               {new Date(ds.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDataSource(ds.id)}
+                                disabled={deleteDsLoading === ds.id}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Delete data source and vector embeddings"
+                              >
+                                {deleteDsLoading === ds.id ? (
+                                  <Loader size={14} className="animate-spin text-red-600" />
+                                ) : (
+                                  <Trash2 size={14} />
+                                )}
+                              </button>
                             </td>
                           </tr>
                         ))}
 
                         {dataSources.length === 0 && (
                           <tr>
-                            <td colSpan={4} className="py-8 text-center text-slate-400 text-xs">
+                            <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
                               No data sources cataloged yet.
                             </td>
                           </tr>
@@ -653,7 +768,7 @@ export default function AgentConfig() {
                     <div className="space-y-4">
                       <div className="relative">
                         <pre className="bg-slate-900 text-slate-100 rounded-lg p-3 text-[11px] font-mono overflow-x-auto leading-relaxed border border-slate-950">
-                          {`<script\n  src="http://localhost:5000/widget.js"\n  data-agent-id="${agent?.id}"\n  data-agent-key="${agent?.api_key}">\n</script>`}
+                          {`<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${agent?.id}"\n  data-agent-key="${agent?.api_key}">\n</script>`}
                         </pre>
                         <button
                           onClick={handleCopyWidgetCode}
@@ -669,20 +784,12 @@ export default function AgentConfig() {
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-dashed border-slate-300 rounded-lg p-8 text-center text-slate-500 space-y-4">
+                    <div className="border border-dashed border-slate-300 rounded-lg p-8 text-center text-slate-500 space-y-3">
                       <AlertTriangle className="mx-auto text-amber-500" size={32} />
-                      <p className="text-xs font-semibold">Agent not deployed yet</p>
-                      <p className="text-[10px] text-slate-400">
-                        You must click "Deploy Chatbot" at the top right to generate a widget key.
+                      <p className="text-xs font-semibold text-slate-800">Agent not deployed yet</p>
+                      <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
+                        Click <span className="font-semibold text-emerald-600">"Deploy Chatbot"</span> in the top-right header above to publish this agent and generate its live embed script.
                       </p>
-                      <button
-                        onClick={handleDeployAgent}
-                        disabled={deployLoading}
-                        className="bg-brand-600 hover:bg-brand-700 text-white text-xs px-4 py-2 rounded font-semibold transition-colors disabled:opacity-50 flex items-center mx-auto"
-                      >
-                        {deployLoading && <RefreshCw className="animate-spin mr-1.5" size={12} />}
-                        Deploy Now
-                      </button>
                     </div>
                   )}
                 </div>

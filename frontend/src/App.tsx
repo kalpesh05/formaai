@@ -6,10 +6,12 @@ import Dashboard from './pages/Dashboard';
 import AgentConfig from './pages/AgentConfig';
 import WorkspaceLogs from './pages/WorkspaceLogs';
 import WorkspaceTickets from './pages/WorkspaceTickets';
+import AppShell from './components/layout/AppShell';
+import { WorkspaceProvider } from './context/WorkspaceContext';
 import { getToken } from './services/api';
 
 /**
- * Route protection wrapper. Redirects unauthenticated agency sessions 
+ * Route protection wrapper. Redirects unauthenticated agency sessions
  * to the login card.
  */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -17,50 +19,69 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return token ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
+/**
+ * Wraps a page in the persistent AppShell sidebar layout.
+ * WorkspaceProvider is placed inside BrowserRouter so it can use
+ * useNavigate for auth-expiry redirects.
+ */
+function ShellRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <WorkspaceProvider>
+        <AppShell>
+          {children}
+        </AppShell>
+      </WorkspaceProvider>
+    </ProtectedRoute>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        
-        <Route 
-          path="/" 
+
+        {/* Protected routes — all wrapped in AppShell with persistent sidebar */}
+        <Route
+          path="/"
           element={
-            <ProtectedRoute>
+            <ShellRoute>
               <Dashboard />
-            </ProtectedRoute>
-          } 
+            </ShellRoute>
+          }
         />
-        
-        <Route 
-          path="/workspaces/:wsId/agents/:agentId" 
+
+        <Route
+          path="/workspaces/:wsId/agents/:agentId"
           element={
-            <ProtectedRoute>
+            <ShellRoute>
               <AgentConfig />
-            </ProtectedRoute>
-          } 
+            </ShellRoute>
+          }
         />
-        
-        <Route 
-          path="/workspaces/:wsId/logs" 
+
+        <Route
+          path="/workspaces/:wsId/logs"
           element={
-            <ProtectedRoute>
+            <ShellRoute>
               <WorkspaceLogs />
-            </ProtectedRoute>
-          } 
+            </ShellRoute>
+          }
         />
-        
-        <Route 
-          path="/workspaces/:wsId/tickets" 
+
+        <Route
+          path="/workspaces/:wsId/tickets"
           element={
-            <ProtectedRoute>
+            <ShellRoute>
               <WorkspaceTickets />
-            </ProtectedRoute>
-          } 
+            </ShellRoute>
+          }
         />
-        
-        {/* Wildcard redirect handler */}
+
+        {/* Wildcard redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

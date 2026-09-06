@@ -119,4 +119,26 @@ router.get('/agents/:id/data-sources', authenticateAgency, asyncHandler(async (r
   return res.json(result.rows);
 }));
 
+// DELETE /api/v1/agents/:id/data-sources/:sourceId - Delete a data source and cascade chunks
+router.delete('/agents/:id/data-sources/:sourceId', authenticateAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id: agentId, sourceId } = req.params;
+  const agencyId = req.agencyId!;
+
+  // Enforce tenant boundary
+  await assertAgentBelongsToAgency(agentId, agencyId);
+
+  const deleteResult = await query(
+    `DELETE FROM data_sources
+     WHERE id = $1 AND agent_id = $2
+     RETURNING id`,
+    [sourceId, agentId]
+  );
+
+  if (deleteResult.rowCount === 0) {
+    return res.status(404).json({ error: 'Data source not found.' });
+  }
+
+  return res.json({ success: true, message: 'Data source and associated embeddings deleted.' });
+}));
+
 export default router;

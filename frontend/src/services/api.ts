@@ -1,4 +1,5 @@
-const BASE_URL = 'http://localhost:5000/api/v1';
+export const API_HOST = (import.meta.env.VITE_API_URL as string) || 'http://localhost:5000';
+export const BASE_URL = `${API_HOST}/api/v1`;
 
 export function getToken(): string | null {
   return localStorage.getItem('fa_token');
