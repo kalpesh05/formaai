@@ -25,8 +25,29 @@ const pdfParse = require('pdf-parse');
 export async function extractTextFromFile(filePath: string, originalName: string): Promise<string> {
   const extension = path.extname(originalName).toLowerCase();
   
-  if (extension === '.txt') {
+  if (extension === '.txt' || extension === '.md') {
     return fs.readFileSync(filePath, 'utf8');
+  }
+
+  // Code, schema, and API specification files
+  if (['.sql', '.json', '.yaml', '.yml', '.ts', '.js'].includes(extension)) {
+    const rawContent = fs.readFileSync(filePath, 'utf8');
+    
+    // Check if JSON contains a ticket export
+    if (extension === '.json') {
+      try {
+        const { parseTicketsFromJson, formatTicketsToMarkdown } = require('./ticketIngester');
+        const tickets = parseTicketsFromJson(rawContent);
+        if (tickets.length > 0) {
+          return formatTicketsToMarkdown(tickets, originalName);
+        }
+      } catch {
+        // Fall back to standard code block formatting
+      }
+    }
+
+    const lang = extension.replace('.', '') === 'ts' ? 'typescript' : extension.replace('.', '');
+    return `# Code / Schema Reference: ${originalName}\n\n\`\`\`${lang}\n${rawContent}\n\`\`\``;
   }
   
   if (extension === '.pdf') {
@@ -41,10 +62,21 @@ export async function extractTextFromFile(filePath: string, originalName: string
   }
   
   if (extension === '.csv') {
-    return fs.readFileSync(filePath, 'utf8');
+    const rawCsv = fs.readFileSync(filePath, 'utf8');
+    // Check if CSV is a support ticket export
+    try {
+      const { parseTicketsFromCsv, formatTicketsToMarkdown } = require('./ticketIngester');
+      const tickets = parseTicketsFromCsv(rawCsv);
+      if (tickets.length >= 2) {
+        return formatTicketsToMarkdown(tickets, originalName);
+      }
+    } catch {
+      // Fall through to plain text
+    }
+    return rawCsv;
   }
   
-  throw new Error(`Unsupported file type: ${extension}`);
+  throw new Error(`Unsupported file type: ${extension}. Supported types: PDF, DOCX, TXT, MD, CSV, SQL, JSON, YAML, TS, JS`);
 }
 
 /**

@@ -1,4 +1,14 @@
 (function() {
+  // Expose global FormaAI namespace for session context injection
+  window.FormaAI = window.FormaAI || {
+    identify: function(userCtx) {
+      window.__forma_user_context = Object.assign({}, window.__forma_user_context || {}, userCtx);
+    },
+    setContext: function(ctx) {
+      window.__forma_user_context = Object.assign({}, window.__forma_user_context || {}, ctx);
+    }
+  };
+
   // 1. Wait for page load and read configuration attributes from script tag
   window.addEventListener('DOMContentLoaded', () => {
     const script = document.querySelector('script[data-agent-key]');
@@ -9,6 +19,8 @@
 
     const agentId = script.getAttribute('data-agent-id');
     const apiKey = script.getAttribute('data-agent-key');
+    const scriptSrc = script.getAttribute('src');
+    const apiHost = (scriptSrc && scriptSrc.startsWith('http')) ? new URL(scriptSrc).origin : '';
 
     if (!agentId || !apiKey) {
       console.error('Forma AI Widget: Both data-agent-id and data-agent-key are required.');
@@ -213,7 +225,17 @@
       const loadingBubble = appendMessage('bot', '...');
 
       try {
-        const response = await fetch(`http://localhost:5000/api/v1/agents/${agentId}/query`, {
+        const sessionCtx = Object.assign({}, window.__forma_user_context || {}, {
+          currentPage: window.location.pathname,
+          url: window.location.href,
+          referrer: document.referrer || undefined
+        });
+
+        const queryUrl = apiHost 
+          ? `${apiHost}/api/v1/agents/${agentId}/query` 
+          : `/api/v1/agents/${agentId}/query`;
+
+        const response = await fetch(queryUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -221,7 +243,8 @@
           },
           body: JSON.stringify({
             message: text,
-            conversation_id: convId || undefined
+            conversation_id: convId || undefined,
+            user_context: sessionCtx
           })
         });
 

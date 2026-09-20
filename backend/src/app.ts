@@ -7,6 +7,8 @@ import workspacesRouter from './routes/workspaces';
 import agentsRouter from './routes/agents';
 import ingestionRouter from './routes/ingestion';
 import queryRouter from './routes/query';
+import evaluationRouter from './routes/evaluation';
+import autofixRouter from './routes/autofix';
 
 dotenv.config();
 
@@ -23,6 +25,8 @@ app.use('/api/v1/workspaces', workspacesRouter);
 app.use('/api/v1', agentsRouter);
 app.use('/api/v1', ingestionRouter);
 app.use('/api/v1', queryRouter);
+app.use('/api/v1', evaluationRouter);
+app.use('/api/v1', autofixRouter);
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {

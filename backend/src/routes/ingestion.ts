@@ -5,6 +5,7 @@ import { query } from '../config/db';
 import { storage } from '../services/storage';
 import { extractTextFromFile, extractTextFromUrl } from '../services/extractor';
 import { processIngestion } from '../services/ingestion';
+import { crawlDocumentationSite, CrawledPage } from '../services/crawler';
 
 const router = Router();
 const upload = multer({ limits: { fileSize: 10 * 1024 * 1024 } }); // Limit uploads to 10MB
@@ -97,6 +98,49 @@ router.post('/agents/:id/data-sources/url', authenticateAgency, asyncHandler(asy
   })();
 
   // Return immediately while processing runs in background
+  return res.status(201).json(dataSource);
+}));
+
+// POST /api/v1/agents/:id/data-sources/crawl - Recursively crawl documentation hierarchy
+router.post('/agents/:id/data-sources/crawl', authenticateAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const agentId = req.params.id;
+  const { rootUrl, maxPages = 15 } = req.body;
+  const agencyId = req.agencyId!;
+
+  if (!rootUrl) {
+    return res.status(400).json({ error: 'rootUrl is required' });
+  }
+
+  // Enforce tenant boundary
+  await assertAgentBelongsToAgency(agentId, agencyId);
+
+  // 1. Create data source row in 'pending' status
+  const insertResult = await query(
+    `INSERT INTO data_sources (agent_id, source_type, source_ref, status)
+     VALUES ($1, 'url', $2, 'pending')
+     RETURNING id, source_type, source_ref, status, created_at`,
+    [agentId, `[Crawl] ${rootUrl}`]
+  );
+  
+  const dataSource = insertResult.rows[0];
+
+  // 2. Run crawler and vector generation asynchronously in background
+  (async () => {
+    try {
+      const pages: CrawledPage[] = await crawlDocumentationSite(rootUrl, { maxPages: Math.min(30, Number(maxPages) || 15) });
+      
+      if (pages.length === 0) {
+        throw new Error('No crawlable documentation pages discovered under this URL.');
+      }
+      
+      const aggregatedMarkdown = pages.map((p: CrawledPage) => p.markdown).join('\n\n---\n\n');
+      await processIngestion(agentId, dataSource.id, aggregatedMarkdown, `Documentation: ${rootUrl}`);
+    } catch (err: any) {
+      console.error(`Background crawl failed for agent ${agentId}, source ${dataSource.id}:`, err.message);
+      await query(`UPDATE data_sources SET status = 'failed' WHERE id = $1`, [dataSource.id]);
+    }
+  })();
+
   return res.status(201).json(dataSource);
 }));
 

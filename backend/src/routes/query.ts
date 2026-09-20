@@ -33,6 +33,30 @@ function mapAgentTools(rows: any[]): ToolDefinition[] {
           required: ['date', 'time', 'attendee_email']
         }
       };
+    } else if (r.tool_type === 'database_query') {
+      return {
+        name: 'query_user_account',
+        description: 'Query live customer database or internal billing API to verify user state, subscription plan, payment deduction, or webhook synchronization. Use this when the user asks about payment deductions, why their plan has not upgraded, transaction history, or account status.',
+        input_schema: {
+          type: 'OBJECT',
+          properties: {
+            user_id: { type: 'STRING', description: 'The unique identifier or email of the customer' },
+            query_type: { type: 'STRING', description: 'Type of query: "billing", "subscription", "payments", or "general"' }
+          }
+        }
+      };
+    } else if (r.tool_type === 'sentry_telemetry') {
+      return {
+        name: 'check_recent_telemetry_errors',
+        description: 'Check Sentry or application telemetry logs for recent unhandled frontend crashes, white-screen exceptions, or 500 server errors for the user session. Use this whenever the user reports an error, crash, white screen, button not responding, or failed export.',
+        input_schema: {
+          type: 'OBJECT',
+          properties: {
+            user_id: { type: 'STRING', description: 'The user ID or session reference' },
+            timeframe_minutes: { type: 'INTEGER', description: 'Time window in minutes to look back (default 15)' }
+          }
+        }
+      };
     } else {
       return {
         name: 'create_support_ticket',
@@ -53,7 +77,7 @@ function mapAgentTools(rows: any[]): ToolDefinition[] {
 // POST /api/v1/agents/:id/query - Execute a RAG query chat turn against the agent
 router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const agentId = req.params.id;
-  const { message, conversation_id } = req.body;
+  const { message, conversation_id, user_context } = req.body;
 
   if (!message) {
     return res.status(400).json({ error: 'message is required' });
@@ -119,14 +143,17 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
     conversationId = convInsert.rows[0].id;
   }
 
-  // 4. Perform RAG Vector Semantic Search
+  // 4. Perform RAG Vector Semantic Search with Cosine Similarity
   let chunksText = '';
+  let topSimilarity = 0;
+  let retrievedChunksList: any[] = [];
   try {
     const userEmbedding = await generateEmbedding(message);
     const vectorStr = `[${userEmbedding.join(',')}]`;
     
     const chunksResult = await query(
-      `SELECT content FROM chunks 
+      `SELECT content, 1 - (embedding <=> $2::vector) AS similarity 
+       FROM chunks 
        WHERE agent_id = $1 
        ORDER BY embedding <=> $2::vector 
        LIMIT 5`,
@@ -134,119 +161,192 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
     );
 
     if (chunksResult.rowCount && chunksResult.rowCount > 0) {
+      retrievedChunksList = chunksResult.rows;
+      topSimilarity = Math.max(0, parseFloat(chunksResult.rows[0].similarity) || 0);
       chunksText = chunksResult.rows.map(r => r.content).join('\n---\n');
     }
   } catch (err: any) {
     console.error('RAG vector search failed, proceeding without chunks:', err.message);
   }
 
-  // 5. Build prompt system instruction
-  const basePrompt = agent.config?.systemPrompt || 
-    (agent.template_type === 'sales' 
-      ? 'You are a helpful sales assistant.' 
-      : 'You are a helpful customer support agent.');
+  // 5. Confidence Threshold & Guardrail Verification
+  const confidenceThreshold = agent.config?.confidenceThreshold ?? 0.70;
+  const fallbackMode = agent.config?.fallbackMode || 'escalate_ticket';
+  const copilotMode = agent.config?.copilotMode === true;
+  const isGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|howdy|who are you)\b/i.test(message.trim());
+  
+  let guardrailTriggered = false;
+  let fallbackReply = '';
 
-  let systemPrompt = basePrompt;
-  if (chunksText) {
-    systemPrompt = `${basePrompt}\n\nUse the following retrieved context information from our knowledge base to answer the user query. Do not hallucinate outside this context.\nContext information:\n---------------------\n${chunksText}\n---------------------\n`;
+  // Trigger guardrail if it's a technical/domain query and confidence is below threshold
+  if (!isGreeting && topSimilarity > 0 && topSimilarity < confidenceThreshold) {
+    guardrailTriggered = true;
+    if (fallbackMode === 'escalate_ticket') {
+      const ticketSubj = `Low confidence escalation: ${message.slice(0, 60)}`;
+      const ticketDesc = `End user query: "${message}"\nRetrieval similarity was ${(topSimilarity * 100).toFixed(1)}% (minimum threshold: ${(confidenceThreshold * 100).toFixed(0)}%).\nAuto-escalated by Zero-Blunder guardrail.`;
+      
+      try {
+        await query(
+          `INSERT INTO tickets (agent_id, subject, description, status) VALUES ($1, $2, $3, 'open')`,
+          [agentId, ticketSubj, ticketDesc]
+        );
+      } catch (e: any) {
+        console.error('Failed to log guardrail ticket:', e.message);
+      }
+
+      fallbackReply = `I want to ensure you get 100% accurate guidance. My knowledge match confidence for this question is ${(topSimilarity * 100).toFixed(0)}% (below our ${(confidenceThreshold * 100).toFixed(0)}% strict verification threshold). Rather than risk inaccurate formula or codebase details, I have automatically escalated a support ticket for our engineering team to assist you directly.`;
+    } else {
+      fallbackReply = `I do not have sufficient verified documentation or codebase records in my current knowledge base to answer this with high confidence (confidence: ${(topSimilarity * 100).toFixed(0)}%, required: ${(confidenceThreshold * 100).toFixed(0)}%). Please contact engineering support or check our verified docs.`;
+    }
   }
-
-  // 6. Gather active tools for the agent
-  const toolsResult = await query(
-    `SELECT tool_type, tool_config FROM agent_tools WHERE agent_id = $1 AND enabled = true`,
-    [agentId]
-  );
-  const mappedTools = mapAgentTools(toolsResult.rows);
-
-  // 7. Invoke the Gemini LLM router
-  let routerResponse = await callGemini(
-    systemPrompt,
-    chatHistory,
-    message,
-    mappedTools
-  );
 
   const actionsTaken: any[] = [];
+  let finalBotReply = '';
 
-  // If Gemini requests a tool execution, execute it and feed the output back to the model
-  if (routerResponse.toolCalls && routerResponse.toolCalls.length > 0) {
-    const geminiHistory: any[] = chatHistory.map(h => ({
-      role: h.role,
-      parts: [{ text: h.content }]
-    }));
+  if (guardrailTriggered) {
+    finalBotReply = fallbackReply;
+  } else {
+    // 6. Build prompt system instruction
+    const basePrompt = agent.config?.systemPrompt || 
+      (agent.template_type === 'sales' 
+        ? 'You are a helpful sales assistant.' 
+        : 'You are a helpful customer support agent.');
 
-    geminiHistory.push({
-      role: 'user',
-      parts: [{ text: message }]
-    });
-
-    const functionCallsParts = routerResponse.toolCalls.map(tc => ({
-      functionCall: {
-        name: tc.name,
-        args: tc.input
-      }
-    }));
-
-    geminiHistory.push({
-      role: 'model',
-      parts: functionCallsParts
-    });
-
-    const functionResponseParts = [];
-    for (const toolCall of routerResponse.toolCalls) {
-      const toolRow = toolsResult.rows.find(r => {
-        if (r.tool_type === 'calendar_booking' && toolCall.name === 'book_calendar_slot') return true;
-        if (r.tool_type === 'ticket_create' && toolCall.name === 'create_support_ticket') return true;
-        return false;
-      });
-      const toolConfig = toolRow ? toolRow.tool_config : {};
-
-      const toolResult = await executeTool(toolCall.name, toolCall.input, { agentId, toolConfig });
-      
-      actionsTaken.push({
-        tool_type: toolCall.name,
-        status: toolResult.success ? 'success' : 'failed',
-        result: toolResult.success ? toolResult.data : { error: toolResult.error }
-      });
-
-      functionResponseParts.push({
-        functionResponse: {
-          name: toolCall.name,
-          response: toolResult.success ? toolResult.data : { error: toolResult.error }
-        }
-      });
+    let systemPrompt = basePrompt;
+    if (chunksText) {
+      systemPrompt = `${basePrompt}\n\nUse the following retrieved context information from our knowledge base to answer the user query. Do not hallucinate outside this context. Strictly preserve code syntax and formulas.\nContext information:\n---------------------\n${chunksText}\n---------------------\n`;
     }
 
-    geminiHistory.push({
-      role: 'user',
-      parts: functionResponseParts
-    });
+    if (user_context && typeof user_context === 'object') {
+      const contextLines = Object.entries(user_context)
+        .map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+        .join('\n');
+      systemPrompt += `\n\nActive End-User Session Context:\n---------------------\n${contextLines}\n---------------------\n`;
+    }
 
-    // Call Gemini again to generate final context-grounded response
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (GEMINI_API_KEY && GEMINI_API_KEY.trim() !== '' && !GEMINI_API_KEY.startsWith('replace_this')) {
-      try {
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({
-          model: 'gemini-1.5-flash',
-          systemInstruction: systemPrompt,
+    // 7. Gather active tools for the agent
+    const toolsResult = await query(
+      `SELECT tool_type, tool_config FROM agent_tools WHERE agent_id = $1 AND enabled = true`,
+      [agentId]
+    );
+    const mappedTools = mapAgentTools(toolsResult.rows);
+
+    // 8. Invoke the Gemini LLM router
+    let routerResponse = await callGemini(
+      systemPrompt,
+      chatHistory,
+      message,
+      mappedTools
+    );
+
+    // If Gemini requests a tool execution, execute it and feed the output back to the model
+    if (routerResponse.toolCalls && routerResponse.toolCalls.length > 0) {
+      const geminiHistory: any[] = chatHistory.map(h => ({
+        role: h.role,
+        parts: [{ text: h.content }]
+      }));
+
+      geminiHistory.push({
+        role: 'user',
+        parts: [{ text: message }]
+      });
+
+      const functionCallsParts = routerResponse.toolCalls.map(tc => ({
+        functionCall: {
+          name: tc.name,
+          args: tc.input
+        }
+      }));
+
+      geminiHistory.push({
+        role: 'model',
+        parts: functionCallsParts
+      });
+
+      const functionResponseParts = [];
+      for (const toolCall of routerResponse.toolCalls) {
+        const toolRow = toolsResult.rows.find(r => {
+          if (r.tool_type === 'calendar_booking' && toolCall.name === 'book_calendar_slot') return true;
+          if (r.tool_type === 'ticket_create' && toolCall.name === 'create_support_ticket') return true;
+          if (r.tool_type === 'database_query' && toolCall.name === 'query_user_account') return true;
+          if (r.tool_type === 'sentry_telemetry' && toolCall.name === 'check_recent_telemetry_errors') return true;
+          return false;
+        });
+        const toolConfig = toolRow ? toolRow.tool_config : {};
+
+        const toolResult = await executeTool(toolCall.name, toolCall.input, { 
+          agentId, 
+          toolConfig,
+          sessionContext: user_context
+        });
+        
+        actionsTaken.push({
+          tool_type: toolCall.name,
+          status: toolResult.success ? 'success' : 'failed',
+          result: toolResult.success ? toolResult.data : { error: toolResult.error }
         });
 
-        const finalResponse = await model.generateContent({
-          contents: geminiHistory
+        functionResponseParts.push({
+          functionResponse: {
+            name: toolCall.name,
+            response: toolResult.success ? toolResult.data : { error: toolResult.error }
+          }
         });
-
-        routerResponse.reply = finalResponse.response.text() || '';
-      } catch (err: any) {
-        console.error('Failed to get final response from Gemini tool loop:', err.message);
-        routerResponse.reply = `I have processed your request. Here are the actions taken: ${JSON.stringify(actionsTaken)}`;
       }
-    } else {
-      routerResponse.reply = `[Mock Final AI Response] Successfully executed action: ${JSON.stringify(actionsTaken.map(a => a.tool_type))}.`;
+
+      geminiHistory.push({
+        role: 'user',
+        parts: functionResponseParts
+      });
+
+      // Call Gemini again to generate final context-grounded response
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+      if (GEMINI_API_KEY && GEMINI_API_KEY.trim() !== '' && !GEMINI_API_KEY.startsWith('replace_this')) {
+        try {
+          const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+          const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash',
+            systemInstruction: systemPrompt,
+          });
+
+          const finalResponse = await model.generateContent({
+            contents: geminiHistory
+          });
+
+          routerResponse.reply = finalResponse.response.text() || '';
+        } catch (err: any) {
+          console.error('Failed to get final response from Gemini tool loop:', err.message);
+          routerResponse.reply = `I have processed your request. Here are the actions taken: ${JSON.stringify(actionsTaken)}`;
+        }
+      } else {
+        routerResponse.reply = `[Mock Final AI Response] Successfully executed action: ${JSON.stringify(actionsTaken.map(a => a.tool_type))}.`;
+      }
+    }
+
+    finalBotReply = routerResponse.reply;
+  }
+
+  // 9. If agent is in Copilot/Shadow mode, save response as a draft for human review
+  if (copilotMode) {
+    try {
+      await query(
+        `INSERT INTO copilot_drafts (agent_id, conversation_id, user_query, draft_reply, confidence_score, citations, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending')`,
+        [
+          agentId,
+          conversationId,
+          message,
+          finalBotReply,
+          topSimilarity.toFixed(4),
+          JSON.stringify(retrievedChunksList.slice(0, 3).map(c => ({ content: c.content, similarity: c.similarity })))
+        ]
+      );
+    } catch (err: any) {
+      console.error('Failed to record copilot draft:', err.message);
     }
   }
 
-  // 8. Log message exchange in messages table (within a transaction)
+  // 10. Log message exchange in messages table (within a transaction)
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -255,10 +355,14 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
       `INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'user', $2)`,
       [conversationId, message]
     );
-    // Save assistant reply
+    // Save assistant reply (unless in shadow mode waiting for review)
+    const storedAssistantReply = copilotMode 
+      ? `[Shadow Mode] Draft generated for team review.` 
+      : finalBotReply;
+
     await client.query(
       `INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'assistant', $2)`,
-      [conversationId, routerResponse.reply]
+      [conversationId, storedAssistantReply]
     );
     await client.query('COMMIT');
   } catch (err) {
@@ -268,12 +372,14 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
     client.release();
   }
 
-  // Return the resolved final reply and log trace to the widget
+  // Return the resolved final reply and log trace to the caller
   return res.json({
-    reply: routerResponse.reply,
+    reply: copilotMode ? '[Shadow Mode] Response drafted and waiting for human sign-off.' : finalBotReply,
     conversation_id: conversationId,
-    actions_taken: actionsTaken,
-    tool_calls: routerResponse.toolCalls
+    confidence_score: topSimilarity,
+    guardrail_triggered: guardrailTriggered,
+    is_copilot_draft: copilotMode,
+    actions_taken: actionsTaken
   });
 }));
 

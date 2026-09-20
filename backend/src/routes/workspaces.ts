@@ -77,6 +77,9 @@ router.delete('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Respon
   await assertWorkspaceBelongsToAgency(workspaceId, agencyId);
 
   await query('DELETE FROM client_workspaces WHERE id = $1', [workspaceId]);
+  return res.status(204).send();
+}));
+
 // GET /api/v1/workspaces/:workspaceId/logs - List all tool action logs for agents in the workspace
 router.get('/:workspaceId/logs', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { workspaceId } = req.params;

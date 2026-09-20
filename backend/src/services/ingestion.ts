@@ -1,36 +1,31 @@
 import pool, { query } from '../config/db';
 import { generateEmbedding } from './embeddings';
+import { chunkDocumentSemantic } from './chunker';
 
 /**
- * Splits document text into chunks based on word count with a sliding window overlap.
+ * Splits document text into chunks preserving code blocks, tables, and formulas.
  */
-export function chunkText(text: string, chunkSizeWords = 400, overlapWords = 40): string[] {
-  const words = text.split(/\s+/).filter(w => w.trim() !== '');
-  const chunks: string[] = [];
-  
-  if (words.length <= chunkSizeWords) {
-    return [text];
-  }
-  
-  let i = 0;
-  while (i < words.length) {
-    const chunkWords = words.slice(i, i + chunkSizeWords);
-    if (chunkWords.length === 0) break;
-    chunks.push(chunkWords.join(' '));
-    i += (chunkSizeWords - overlapWords);
-  }
-  
-  return chunks;
+export function chunkText(text: string, chunkSizeWords = 400, overlapWords = 40, documentTitle?: string): string[] {
+  return chunkDocumentSemantic(text, {
+    maxChunkWords: chunkSizeWords,
+    overlapWords: overlapWords,
+    documentTitle: documentTitle,
+  });
 }
 
 /**
  * Background orchestrator for processing data source text:
  * Chunks text, generates embeddings (using Gemini), stores vectors, and updates ingestion status.
  */
-export async function processIngestion(agentId: string, dataSourceId: string, text: string): Promise<void> {
+export async function processIngestion(
+  agentId: string, 
+  dataSourceId: string, 
+  text: string, 
+  documentTitle?: string
+): Promise<void> {
   try {
-    // 1. Chunk content
-    const chunks = chunkText(text);
+    // 1. Chunk content semantically preserving syntax and formulas
+    const chunks = chunkText(text, 400, 40, documentTitle);
 
     // 2. Open transaction to write chunks and update source state
     const client = await pool.connect();

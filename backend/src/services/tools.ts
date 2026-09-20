@@ -1,9 +1,11 @@
 import { query } from '../config/db';
 import nodemailer from 'nodemailer';
+import { queryUserAccountState, fetchTelemetryErrors } from './telemetry';
 
 export interface ToolContext {
   agentId: string;
   toolConfig?: Record<string, any>;
+  sessionContext?: Record<string, any>;
 }
 
 export interface ToolResult {
@@ -145,6 +147,14 @@ export async function executeTool(
         created_at: ticket.created_at,
         message: 'Support ticket successfully logged, and email notification processed.'
       };
+      
+    } else if (toolName === 'query_user_account') {
+      const stateResult = await queryUserAccountState(input, toolConfig, context.sessionContext || {});
+      resultData = stateResult;
+      
+    } else if (toolName === 'check_recent_telemetry_errors') {
+      const telemetryResult = await fetchTelemetryErrors(input, toolConfig, context.sessionContext || {});
+      resultData = telemetryResult;
       
     } else {
       throw new Error(`Unsupported tool name: ${toolName}`);

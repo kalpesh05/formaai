@@ -63,7 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks USING ivfflat (embeddi
 CREATE TABLE IF NOT EXISTS agent_tools (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-  tool_type TEXT NOT NULL CHECK (tool_type IN ('calendar_booking', 'ticket_create')),
+  tool_type TEXT NOT NULL CHECK (tool_type IN ('calendar_booking', 'ticket_create', 'database_query', 'sentry_telemetry')),
   tool_config JSONB NOT NULL DEFAULT '{}',
   enabled BOOLEAN DEFAULT true
 );
@@ -109,3 +109,57 @@ CREATE TABLE IF NOT EXISTS tickets (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_tickets_agent ON tickets(agent_id);
+
+-- Evaluation Suite Runs (Benchmark verification before production)
+CREATE TABLE IF NOT EXISTS evaluation_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  dataset_name TEXT NOT NULL DEFAULT 'Custom Benchmark',
+  total_tests INT NOT NULL DEFAULT 0,
+  passed_tests INT NOT NULL DEFAULT 0,
+  accuracy_rate NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
+  avg_similarity NUMERIC(5, 4) NOT NULL DEFAULT 0.0000,
+  hallucination_count INT NOT NULL DEFAULT 0,
+  low_confidence_count INT NOT NULL DEFAULT 0,
+  results JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_evaluation_runs_agent ON evaluation_runs(agent_id);
+
+-- Copilot / Shadow Mode Drafts (Human-in-the-loop review before client delivery)
+CREATE TABLE IF NOT EXISTS copilot_drafts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+  user_query TEXT NOT NULL,
+  draft_reply TEXT NOT NULL,
+  confidence_score NUMERIC(5, 4) NOT NULL DEFAULT 0.0000,
+  citations JSONB NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'edited')),
+  edited_reply TEXT,
+  reviewed_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_copilot_drafts_agent ON copilot_drafts(agent_id);
+
+-- Autonomous Auto-Fix Pull Requests (Path B)
+CREATE TABLE IF NOT EXISTS autofix_prs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  ticket_id UUID REFERENCES tickets(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  bug_description TEXT NOT NULL,
+  error_trace TEXT,
+  target_file TEXT NOT NULL,
+  branch_name TEXT NOT NULL,
+  github_pr_url TEXT,
+  github_pr_number INT,
+  reproduction_test TEXT NOT NULL,
+  patch_diff TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'approved', 'merged', 'rejected')),
+  environments JSONB NOT NULL DEFAULT '["dev", "stage"]',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_autofix_prs_agent ON autofix_prs(agent_id);

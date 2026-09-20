@@ -112,6 +112,29 @@ router.get('/agents/:id', authenticateAgency, asyncHandler(async (req: Authentic
     `SELECT id, tool_type, tool_config, enabled FROM agent_tools WHERE agent_id = $1`,
     [id]
   );
+  let tools = toolsResult.rows;
+
+  // Auto-seed missing telemetry & state tools for existing agents
+  const existingTypes = new Set(tools.map(t => t.tool_type));
+  const candidateTools = [
+    { tool_type: 'ticket_create', tool_config: {} },
+    { tool_type: 'database_query', tool_config: { description: 'Read-only live database & billing verification' } },
+    { tool_type: 'sentry_telemetry', tool_config: { description: 'Sentry application error trace & crash correlator' } }
+  ];
+
+  for (const cand of candidateTools) {
+    if (!existingTypes.has(cand.tool_type)) {
+      try {
+        const ins = await query(
+          `INSERT INTO agent_tools (agent_id, tool_type, tool_config, enabled) VALUES ($1, $2, $3, true) RETURNING id, tool_type, tool_config, enabled`,
+          [id, cand.tool_type, JSON.stringify(cand.tool_config)]
+        );
+        tools.push(ins.rows[0]);
+      } catch (e: any) {
+        // Safe skip on unique conflict
+      }
+    }
+  }
 
   // Get data sources
   const dataSourcesResult = await query(
@@ -121,7 +144,7 @@ router.get('/agents/:id', authenticateAgency, asyncHandler(async (req: Authentic
 
   return res.json({
     ...agent,
-    tools: toolsResult.rows,
+    tools,
     data_sources: dataSourcesResult.rows
   });
 }));
@@ -203,10 +226,10 @@ router.post('/agents/:id/deploy', authenticateAgency, asyncHandler(async (req: A
   return res.json(result.rows[0]);
 }));
 
-// PATCH /api/v1/agent-tools/:toolId - Enable/disable a specific tool
+// PATCH /api/v1/agent-tools/:toolId - Enable/disable or configure a specific tool
 router.patch('/agent-tools/:toolId', authenticateAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { toolId } = req.params;
-  const { enabled } = req.body;
+  const { enabled, tool_config } = req.body;
   const agencyId = req.agencyId!;
 
   // Verify the tool belongs to an agent owned by the agency
@@ -221,9 +244,27 @@ router.patch('/agent-tools/:toolId', authenticateAgency, asyncHandler(async (req
     return res.status(403).json({ error: 'Access denied or tool not found' });
   }
 
+  const updates: string[] = [];
+  const values: any[] = [];
+  let idx = 1;
+
+  if (enabled !== undefined) {
+    updates.push(`enabled = $${idx++}`);
+    values.push(enabled);
+  }
+  if (tool_config !== undefined) {
+    updates.push(`tool_config = $${idx++}`);
+    values.push(JSON.stringify(tool_config));
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'At least enabled or tool_config must be provided' });
+  }
+
+  values.push(toolId);
   const updateResult = await query(
-    `UPDATE agent_tools SET enabled = $1 WHERE id = $2 RETURNING id, tool_type, enabled`,
-    [enabled, toolId]
+    `UPDATE agent_tools SET ${updates.join(', ')} WHERE id = $${idx} RETURNING id, tool_type, tool_config, enabled`,
+    values
   );
   return res.json(updateResult.rows[0]);
 }));

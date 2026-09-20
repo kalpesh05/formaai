@@ -6,12 +6,16 @@ import {
   Bot, Settings, Hammer, FileText, Code2, Save, Upload, 
   Globe, AlertTriangle, Play, RefreshCw, Send, 
   ArrowLeft, Loader, Copy, Check, Trash2,
-  FileUp, X
+  FileUp, X, ShieldCheck, UserCheck, GitPullRequest,
+  Database, Activity, Calendar, Ticket, ChevronDown, ChevronUp, SlidersHorizontal
 } from 'lucide-react';
 import Toggle from '../components/ui/Toggle';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
+import EvaluationSuite from '../components/agent/EvaluationSuite';
+import CopilotQueue from '../components/agent/CopilotQueue';
+import AutoFixDashboard from '../components/agent/AutoFixDashboard';
 
 interface Agent {
   id: string;
@@ -24,12 +28,15 @@ interface Agent {
   config: {
     systemPrompt?: string;
     temperature?: number;
+    confidenceThreshold?: number;
+    fallbackMode?: 'escalate_ticket' | 'safe_refusal';
+    copilotMode?: boolean;
   };
 }
 
 interface Tool {
   id: string;
-  tool_type: 'calendar_booking' | 'ticket_create';
+  tool_type: 'calendar_booking' | 'ticket_create' | 'database_query' | 'sentry_telemetry';
   enabled: boolean;
   tool_config: any;
 }
@@ -54,7 +61,7 @@ export default function AgentConfig() {
   const currentWs = workspaces.find(w => w.id === wsId);
   const wsName = currentWs?.client_name || 'Workspace';
 
-  const [activeTab, setActiveTab] = useState<'settings' | 'tools' | 'ingestion' | 'widget'>('settings');
+  const [activeTab, setActiveTab] = useState<'settings' | 'tools' | 'ingestion' | 'evaluation' | 'copilot' | 'autofix' | 'widget'>('settings');
   const [agent, setAgent] = useState<Agent | null>(null);
   const [tools, setTools] = useState<Tool[]>([]);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
@@ -71,11 +78,16 @@ export default function AgentConfig() {
   const [model, setModel] = useState('gemini-1.5-flash');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [temperature, setTemperature] = useState(0.7);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.70);
+  const [fallbackMode, setFallbackMode] = useState<'escalate_ticket' | 'safe_refusal'>('escalate_ticket');
+  const [copilotMode, setCopilotMode] = useState(false);
 
   // Ingestion inputs
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [urlToScrape, setUrlToScrape] = useState('');
+  const [crawlMode, setCrawlMode] = useState<'single' | 'recursive'>('single');
+  const [maxCrawlPages, setMaxCrawlPages] = useState(15);
   const [ingestLoading, setIngestLoading] = useState(false);
   const [deleteDsLoading, setDeleteDsLoading] = useState<string | null>(null);
 
@@ -85,11 +97,19 @@ export default function AgentConfig() {
   // Copy state
   const [copied, setCopied] = useState(false);
 
-  // Chat sandbox
+  // Chat sandbox & simulated session context
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [convId, setConvId] = useState<string | null>(null);
+  const [simulatedUserId, setSimulatedUserId] = useState('usr_9914');
+  const [simulatedPlan, setSimulatedPlan] = useState('Team Pro (payment sync pending)');
+  const [simulatedPage, setSimulatedPage] = useState('/analytics/export');
+  const [showContextDrawer, setShowContextDrawer] = useState(false);
+
+  // Tool config drawer
+  const [expandedToolId, setExpandedToolId] = useState<string | null>(null);
+  const [toolConfigDraft, setToolConfigDraft] = useState<Record<string, any>>({});
   
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -114,6 +134,9 @@ export default function AgentConfig() {
       setModel(data.llm_model);
       setSystemPrompt(data.config?.systemPrompt || '');
       setTemperature(data.config?.temperature ?? 0.7);
+      setConfidenceThreshold(data.config?.confidenceThreshold ?? 0.70);
+      setFallbackMode(data.config?.fallbackMode || 'escalate_ticket');
+      setCopilotMode(data.config?.copilotMode === true);
       setTools(data.tools || []);
       setDataSources(data.data_sources || []);
     } catch (err: any) {
@@ -134,11 +157,17 @@ export default function AgentConfig() {
         name,
         llm_provider: provider,
         llm_model: model,
-        config: { systemPrompt, temperature }
+        config: { 
+          systemPrompt, 
+          temperature,
+          confidenceThreshold,
+          fallbackMode,
+          copilotMode
+        }
       });
       setAgent(updated);
       setIsDirty(false);
-      setSuccessMsg('Settings updated successfully.');
+      setSuccessMsg('Settings and accuracy guardrails updated successfully.');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to update settings');
     } finally {
@@ -173,6 +202,21 @@ export default function AgentConfig() {
       setTools(tools.map(t => t.id === toolId ? { ...t, enabled: res.enabled } : t));
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to toggle tool status');
+    }
+  };
+
+  const handleUpdateToolConfig = async (toolId: string, updatedConfig: any) => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const res = await apiRequest(`/agent-tools/${toolId}`, 'PATCH', {
+        tool_config: updatedConfig
+      });
+      setTools(tools.map(t => t.id === toolId ? { ...t, tool_config: res.tool_config } : t));
+      setSuccessMsg('Tool configuration updated successfully.');
+      setExpandedToolId(null);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to save tool configuration');
     }
   };
 
@@ -218,16 +262,22 @@ export default function AgentConfig() {
     setErrorMsg('');
 
     try {
-      const ds = await apiRequest(`/agents/${agentId}/data-sources/url`, 'POST', {
-        url: urlToScrape
-      });
+      const endpoint = crawlMode === 'recursive'
+        ? `/agents/${agentId}/data-sources/crawl`
+        : `/agents/${agentId}/data-sources/url`;
+
+      const payload = crawlMode === 'recursive'
+        ? { rootUrl: urlToScrape, maxPages: maxCrawlPages }
+        : { url: urlToScrape };
+
+      const ds = await apiRequest(endpoint, 'POST', payload);
       setDataSources([ds, ...dataSources]);
       setUrlToScrape('');
       
       // Auto-refresh queue in 5s
       setTimeout(fetchAgentDetails, 5000);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to queue URL scraping');
+      setErrorMsg(err.message || 'Failed to queue web source');
     } finally {
       setIngestLoading(false);
     }
@@ -251,7 +301,7 @@ export default function AgentConfig() {
 
   const handleCopyWidgetCode = () => {
     if (!agent?.api_key) return;
-    const code = `<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${agent.id}"\n  data-agent-key="${agent.api_key}">\n</script>`;
+    const code = `<!-- 1. Load Widget -->\n<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${agent.id}"\n  data-agent-key="${agent.api_key}">\n</script>\n\n<!-- 2. Pass Authenticated Session Context (Optional) -->\n<script>\n  window.FormaAI && window.FormaAI.identify({\n    userId: "usr_9914",\n    email: "customer@example.com",\n    plan: "Team Pro",\n    currentPage: window.location.pathname\n  });\n</script>`;
     navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -267,9 +317,17 @@ export default function AgentConfig() {
     setChatLoading(true);
 
     try {
+      const userContextPayload = simulatedUserId.trim() ? {
+        user_id: simulatedUserId.trim(),
+        plan: simulatedPlan,
+        currentPage: simulatedPage,
+        email: `${simulatedUserId.trim()}@client.com`
+      } : undefined;
+
       const res = await apiRequest(`/agents/${agentId}/query`, 'POST', {
         message: userMsg,
-        conversation_id: convId || undefined
+        conversation_id: convId || undefined,
+        user_context: userContextPayload
       });
 
       if (res.conversation_id && !convId) {
@@ -376,6 +434,33 @@ export default function AgentConfig() {
           >
             <FileText size={18} />
             <span>Knowledge Base</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('evaluation')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'evaluation' ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            <ShieldCheck size={18} />
+            <span>Evaluation Suite</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('copilot')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'copilot' ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            <UserCheck size={18} />
+            <span>Support Copilot</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('autofix')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'autofix' ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            <GitPullRequest size={18} />
+            <span>Auto-Fix & PRs</span>
           </button>
           <button
             onClick={() => setActiveTab('widget')}
@@ -519,6 +604,68 @@ export default function AgentConfig() {
                   />
                 </div>
 
+                {/* Zero-Blunder Guardrails Section */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={18} className="text-brand-600" />
+                    <h3 className="text-sm font-bold text-slate-900">Zero-Blunder Guardrails &amp; Human Review</h3>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Configure strict accuracy limits to prevent hallucinations on complex code, formulas, and billing queries.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-6 pt-2">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-700">Minimum Confidence Floor</label>
+                        <span className="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+                          {(confidenceThreshold * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.50"
+                        max="0.95"
+                        step="0.05"
+                        value={confidenceThreshold}
+                        onChange={(e) => { setConfidenceThreshold(parseFloat(e.target.value)); setIsDirty(true); }}
+                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-600 mt-2.5"
+                      />
+                      <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                        <span>Permissive (50%)</span>
+                        <span>Strict (70% - Recommended)</span>
+                        <span>Near-Exact (95%)</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Low-Confidence Fallback Policy</label>
+                      <select
+                        value={fallbackMode}
+                        onChange={(e) => { setFallbackMode(e.target.value as any); setIsDirty(true); }}
+                        className="w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 text-xs bg-white mt-1"
+                      >
+                        <option value="escalate_ticket">Auto-Create Priority Support Ticket</option>
+                        <option value="safe_refusal">Safe Refusal ("Insufficient verified knowledge")</option>
+                      </select>
+                      <p className="text-[10px] text-slate-400 mt-1.5">
+                        Triggered automatically when knowledge similarity drops below the minimum confidence floor.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-slate-800">Shadow Mode / Support Copilot</div>
+                      <div className="text-[11px] text-slate-500">Draft answers for human team review before publishing to live customers.</div>
+                    </div>
+                    <Toggle
+                      checked={copilotMode}
+                      onChange={(val) => { setCopilotMode(val); setIsDirty(true); }}
+                    />
+                  </div>
+                </div>
+
                 <div className="flex justify-end pt-2 border-t border-slate-100">
                   <Button
                     type="submit"
@@ -537,36 +684,170 @@ export default function AgentConfig() {
             {activeTab === 'tools' && (
               <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
                 <div>
-                  <h2 className="text-base font-bold text-slate-800">Predefined Functional Tools</h2>
+                  <h2 className="text-base font-bold text-slate-800">Predefined Functional Tools &amp; Telemetry</h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    Toggle on/off functions the agent can trigger using LLM function calling.
+                    Toggle on/off functions the agent can trigger to check live user state, inspect crash telemetry, or schedule calls.
                   </p>
                 </div>
 
                 <div className="space-y-4">
-                  {tools.map(tool => (
-                    <div 
-                      key={tool.id} 
-                      className="border border-slate-100 rounded-lg p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors"
-                    >
-                      <div className="space-y-1 pr-4">
-                        <div className="font-bold text-sm text-slate-900 capitalize">
-                          {tool.tool_type.replace('_', ' ')}
+                  {tools.map(tool => {
+                    const isConfigExpanded = expandedToolId === tool.id;
+
+                    return (
+                      <div 
+                        key={tool.id} 
+                        className="border border-slate-200 rounded-lg p-4 transition-colors space-y-3 bg-white hover:border-slate-300"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 mt-0.5">
+                              {tool.tool_type === 'database_query' && <Database className="text-emerald-600" size={20} />}
+                              {tool.tool_type === 'sentry_telemetry' && <Activity className="text-rose-600" size={20} />}
+                              {tool.tool_type === 'calendar_booking' && <Calendar className="text-blue-600" size={20} />}
+                              {tool.tool_type === 'ticket_create' && <Ticket className="text-amber-600" size={20} />}
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="font-bold text-sm text-slate-900">
+                                {tool.tool_type === 'database_query' && 'Live Database & Billing State Verification'}
+                                {tool.tool_type === 'sentry_telemetry' && 'Sentry & Error Telemetry Connector'}
+                                {tool.tool_type === 'calendar_booking' && 'Cal.com Meeting Scheduler'}
+                                {tool.tool_type === 'ticket_create' && 'Automated Support Ticket Escalation'}
+                              </div>
+                              <p className="text-xs text-slate-500 max-w-xl">
+                                {tool.tool_type === 'database_query' && 'Queries live customer database or internal billing API to verify user state, subscription plan, payment deduction, or webhook synchronization.'}
+                                {tool.tool_type === 'sentry_telemetry' && 'Queries Sentry or application telemetry logs for recent unhandled frontend crashes, white screens, or server exceptions to diagnose bugs.'}
+                                {tool.tool_type === 'calendar_booking' && 'Allows scheduling calendar calls directly from chat when sales demos or high-touch onboarding are requested.'}
+                                {tool.tool_type === 'ticket_create' && 'Submits formal escalated tickets into database system when support requests are not resolvable.'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            {(tool.tool_type === 'database_query' || tool.tool_type === 'sentry_telemetry') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isConfigExpanded) {
+                                    setExpandedToolId(null);
+                                  } else {
+                                    setExpandedToolId(tool.id);
+                                    setToolConfigDraft(tool.tool_config || {});
+                                  }
+                                }}
+                                className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center gap-1"
+                              >
+                                <span>Settings</span>
+                                {isConfigExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                              </button>
+                            )}
+
+                            <Toggle
+                              checked={tool.enabled}
+                              onChange={() => handleToggleTool(tool.id, tool.enabled)}
+                              aria-label={`Enable ${tool.tool_type.replace('_', ' ')}`}
+                            />
+                          </div>
                         </div>
-                        <p className="text-xs text-slate-400">
-                          {tool.tool_type === 'calendar_booking' 
-                            ? 'Allows scheduling calendar calls directly from chat when sales demos are requested.'
-                            : 'Submits formal escalated tickets into database system when support requests are not resolvable.'}
-                        </p>
+
+                        {/* Inline Configuration Drawer */}
+                        {isConfigExpanded && (
+                          <div className="pt-3 border-t border-slate-100 bg-slate-50/70 -mx-4 -mb-4 p-4 rounded-b-lg space-y-3">
+                            {tool.tool_type === 'database_query' && (
+                              <div className="space-y-3">
+                                <div className="text-xs font-bold text-slate-700">Internal Billing / DB Webhook API:</div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Webhook Endpoint URL</label>
+                                    <input
+                                      type="url"
+                                      value={toolConfigDraft.webhook_url || ''}
+                                      onChange={(e) => setToolConfigDraft({ ...toolConfigDraft, webhook_url: e.target.value })}
+                                      placeholder="https://api.acme.com/internal/user-billing-status"
+                                      className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white text-slate-800"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Authorization Header</label>
+                                    <input
+                                      type="text"
+                                      value={toolConfigDraft.auth_header || ''}
+                                      onChange={(e) => setToolConfigDraft({ ...toolConfigDraft, auth_header: e.target.value })}
+                                      placeholder="Bearer secret_api_token"
+                                      className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white text-slate-800"
+                                    />
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-slate-400">
+                                  If endpoint is left blank, Forma AI automatically simulates realistic state verification in Sandbox mode.
+                                </p>
+                              </div>
+                            )}
+
+                            {tool.tool_type === 'sentry_telemetry' && (
+                              <div className="space-y-3">
+                                <div className="text-xs font-bold text-slate-700">Sentry Project Credentials:</div>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Sentry Organization</label>
+                                    <input
+                                      type="text"
+                                      value={toolConfigDraft.sentry_org || ''}
+                                      onChange={(e) => setToolConfigDraft({ ...toolConfigDraft, sentry_org: e.target.value })}
+                                      placeholder="acme-saas"
+                                      className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white text-slate-800"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Project Slug</label>
+                                    <input
+                                      type="text"
+                                      value={toolConfigDraft.sentry_project || ''}
+                                      onChange={(e) => setToolConfigDraft({ ...toolConfigDraft, sentry_project: e.target.value })}
+                                      placeholder="frontend-app"
+                                      className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white text-slate-800"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Sentry Auth Token</label>
+                                    <input
+                                      type="password"
+                                      value={toolConfigDraft.sentry_auth_token || ''}
+                                      onChange={(e) => setToolConfigDraft({ ...toolConfigDraft, sentry_auth_token: e.target.value })}
+                                      placeholder="sntrys_..."
+                                      className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white text-slate-800"
+                                    />
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-slate-400">
+                                  When Sentry credentials are not configured, Forma AI synthesizes realistic crash traces for white-screen testing.
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedToolId(null)}
+                                className="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-800"
+                              >
+                                Cancel
+                              </button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="primary"
+                                onClick={() => handleUpdateToolConfig(tool.id, toolConfigDraft)}
+                              >
+                                Save Tool Settings
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      
-                      <Toggle
-                        checked={tool.enabled}
-                        onChange={() => handleToggleTool(tool.id, tool.enabled)}
-                        aria-label={`Enable ${tool.tool_type.replace('_', ' ')}`}
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {tools.length === 0 && (
                     <div className="text-slate-400 text-sm py-6 text-center">
@@ -582,14 +863,14 @@ export default function AgentConfig() {
               <div className="space-y-6">
                 {/* 1. Scraper Uploaders */}
                 <div className="grid grid-cols-2 gap-6">
-                  {/* Document Ingester */}
+                  {/* Document & Codebase Ingester */}
                   <form onSubmit={handleFileUpload} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
                     <div className="flex items-center gap-1.5 text-slate-800 font-bold text-sm">
                       <Upload size={18} className="text-brand-600" />
-                      <span>Upload Document</span>
+                      <span>Upload Code, Schemas & Docs</span>
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Supports DOCX, CSV, TXT, or PDF files. Embeddings will generate automatically.
+                      Supports PDFs, Docs, Ticket CSVs, SQL schemas, JSON/YAML configs, and TS/JS codebase files. AST and formulas are preserved.
                     </p>
                     
                     {/* Drag and drop zone */}
@@ -630,12 +911,12 @@ export default function AgentConfig() {
                       ) : (
                         <label className="cursor-pointer block py-2">
                           <FileUp size={24} className="mx-auto text-slate-400 mb-1.5" />
-                          <span className="text-xs font-semibold text-brand-600 hover:text-brand-700">Choose document</span>
+                          <span className="text-xs font-semibold text-brand-600 hover:text-brand-700">Choose file</span>
                           <span className="text-xs text-slate-500"> or drag &amp; drop</span>
-                          <div className="text-[10px] text-slate-400 mt-0.5">PDF, DOCX, TXT, CSV up to 10MB</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">PDF, DOCX, TXT, MD, CSV, SQL, JSON, YAML, TS, JS up to 10MB</div>
                           <input
                             type="file"
-                            accept=".txt,.pdf,.docx,.csv"
+                            accept=".txt,.md,.pdf,.docx,.csv,.sql,.json,.yaml,.yml,.ts,.js"
                             onChange={(e) => setFileToUpload(e.target.files?.[0] || null)}
                             className="hidden"
                           />
@@ -655,12 +936,40 @@ export default function AgentConfig() {
 
                   {/* Scrape URL Ingester */}
                   <form onSubmit={handleUrlScrape} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-                    <div className="flex items-center gap-1.5 text-slate-800 font-bold text-sm">
-                      <Globe size={18} className="text-brand-600" />
-                      <span>Scrape URL Website</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-slate-800 font-bold text-sm">
+                        <Globe size={18} className="text-brand-600" />
+                        <span>Documentation & Web Ingester</span>
+                      </div>
+                      <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setCrawlMode('single')}
+                          className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                            crawlMode === 'single'
+                              ? 'bg-white text-brand-700 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Single Page
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCrawlMode('recursive')}
+                          className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                            crawlMode === 'recursive'
+                              ? 'bg-white text-brand-700 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Recursive Docs Crawl
+                        </button>
+                      </div>
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Provide a help center URL page to crawl. Text content will be stripped and parsed.
+                      {crawlMode === 'recursive'
+                        ? 'Recursively crawls internal docs and subpages within the domain path. Cleans markdown, tables, and API code.'
+                        : 'Scrapes and embeds a single documentation page or help center article.'}
                     </p>
                     <div className="flex flex-col gap-3">
                       <input
@@ -669,15 +978,28 @@ export default function AgentConfig() {
                         value={urlToScrape}
                         onChange={(e) => setUrlToScrape(e.target.value)}
                         className="rounded border-slate-300 border px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                        placeholder="https://docs.acme.com/help"
+                        placeholder={crawlMode === 'recursive' ? "https://docs.acme.com/v2/" : "https://docs.acme.com/help/formulas"}
                       />
+                      {crawlMode === 'recursive' && (
+                        <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-xs">
+                          <label className="text-slate-600 font-medium">Max pages to traverse:</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={50}
+                            value={maxCrawlPages}
+                            onChange={(e) => setMaxCrawlPages(Math.max(1, Math.min(50, parseInt(e.target.value) || 15)))}
+                            className="w-16 text-center border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 bg-white"
+                          />
+                        </div>
+                      )}
                       <button
                         type="submit"
                         disabled={!urlToScrape.trim() || ingestLoading}
                         className="bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs px-3 py-2 rounded shadow transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                       >
                         {ingestLoading && <Loader className="animate-spin" size={13} />}
-                        <span>{ingestLoading ? 'Crawling...' : 'Scrape Webpage'}</span>
+                        <span>{ingestLoading ? (crawlMode === 'recursive' ? 'Crawling Doc Hierarchy...' : 'Scraping...') : (crawlMode === 'recursive' ? 'Start Recursive Crawl' : 'Scrape Webpage')}</span>
                       </button>
                     </div>
                   </form>
@@ -752,7 +1074,22 @@ export default function AgentConfig() {
               </div>
             )}
 
-            {/* TAB 4: Embed Widget and Chat Sandbox */}
+            {/* TAB 4: Zero-Blunder Evaluation Suite */}
+            {activeTab === 'evaluation' && (
+              <EvaluationSuite agentId={agentId!} />
+            )}
+
+            {/* TAB 5: Support Copilot & Shadow Mode Queue */}
+            {activeTab === 'copilot' && (
+              <CopilotQueue agentId={agentId!} />
+            )}
+
+            {/* TAB 6: Autonomous Auto-Fix & PR Engine */}
+            {activeTab === 'autofix' && (
+              <AutoFixDashboard agentId={agentId!} />
+            )}
+
+            {/* TAB 7: Embed Widget and Chat Sandbox */}
             {activeTab === 'widget' && (
               <div className="grid grid-cols-5 gap-8">
                 {/* Embed code snippet info */}
@@ -767,8 +1104,8 @@ export default function AgentConfig() {
                   {agent?.status === 'live' ? (
                     <div className="space-y-4">
                       <div className="relative">
-                        <pre className="bg-slate-900 text-slate-100 rounded-lg p-3 text-[11px] font-mono overflow-x-auto leading-relaxed border border-slate-950">
-                          {`<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${agent?.id}"\n  data-agent-key="${agent?.api_key}">\n</script>`}
+                        <pre className="bg-slate-900 text-slate-100 rounded-lg p-3 text-[10px] font-mono overflow-x-auto leading-relaxed border border-slate-950">
+                          {`<!-- 1. Load Widget -->\n<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${agent?.id}"\n  data-agent-key="${agent?.api_key}">\n</script>\n\n<!-- 2. Pass Live Session Context (Optional) -->\n<script>\n  window.FormaAI && window.FormaAI.identify({\n    userId: "usr_9914",\n    email: "customer@example.com",\n    plan: "Team Pro",\n    currentPage: window.location.pathname\n  });\n</script>`}
                         </pre>
                         <button
                           onClick={handleCopyWidgetCode}
@@ -779,8 +1116,8 @@ export default function AgentConfig() {
                         </button>
                       </div>
 
-                      <div className="bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-lg p-4 text-xs">
-                        <strong>Deployment Live:</strong> Your agent is actively listening to queries matching this unique key header block.
+                      <div className="bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-lg p-3 text-xs">
+                        <strong>Live Session Support:</strong> Supports <code>window.FormaAI.identify()</code> for seamless user telemetry and state verification.
                       </div>
                     </div>
                   ) : (
@@ -801,13 +1138,64 @@ export default function AgentConfig() {
                     <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                       <Bot size={16} className="text-brand-600" /> Sandbox Chat Simulator
                     </span>
-                    <button 
-                      onClick={handleResetSandboxChat}
-                      className="text-xs font-semibold text-slate-400 hover:text-slate-600"
-                    >
-                      Clear History
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowContextDrawer(!showContextDrawer)}
+                        className={`text-xs font-semibold px-2 py-1 rounded transition-colors flex items-center gap-1 ${
+                          showContextDrawer 
+                            ? 'bg-brand-100 text-brand-700' 
+                            : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-800'
+                        }`}
+                        title="Configure simulated session context"
+                      >
+                        <SlidersHorizontal size={12} />
+                        <span>Session: {simulatedUserId}</span>
+                      </button>
+                      <button 
+                        onClick={handleResetSandboxChat}
+                        className="text-xs font-semibold text-slate-400 hover:text-slate-600 ml-1"
+                      >
+                        Clear
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Simulated Session Context Drawer */}
+                  {showContextDrawer && (
+                    <div className="bg-slate-100 border-b border-slate-200 p-3 text-xs grid grid-cols-3 gap-2 animate-fadeIn">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">User ID / Email</label>
+                        <input
+                          type="text"
+                          value={simulatedUserId}
+                          onChange={(e) => setSimulatedUserId(e.target.value)}
+                          className="w-full text-xs px-2 py-1 bg-white border border-slate-300 rounded"
+                          placeholder="usr_9914"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Current Plan</label>
+                        <input
+                          type="text"
+                          value={simulatedPlan}
+                          onChange={(e) => setSimulatedPlan(e.target.value)}
+                          className="w-full text-xs px-2 py-1 bg-white border border-slate-300 rounded"
+                          placeholder="Team Pro (sync pending)"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Current Screen</label>
+                        <input
+                          type="text"
+                          value={simulatedPage}
+                          onChange={(e) => setSimulatedPage(e.target.value)}
+                          className="w-full text-xs px-2 py-1 bg-white border border-slate-300 rounded"
+                          placeholder="/analytics/export"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Chat Area */}
                   <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
