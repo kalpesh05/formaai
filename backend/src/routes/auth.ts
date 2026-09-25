@@ -130,4 +130,48 @@ router.post('/change-password', asyncHandler(async (req: Request, res: Response)
   return res.json({ message: 'Password updated successfully' });
 }));
 
+/**
+ * POST /api/v1/auth/bootstrap-admin
+ * Secure API endpoint to provision or reset Super Admin credentials on hosted environments (like Render free plan).
+ */
+router.post('/bootstrap-admin', asyncHandler(async (req: Request, res: Response) => {
+  const { email, password, name = 'Platform Owner', secretKey } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  // Check if a super admin already exists
+  const superAdminCount = await query("SELECT COUNT(*)::int as count FROM agencies WHERE role = 'super_admin'");
+  const hasExistingSuperAdmin = (superAdminCount.rows[0]?.count || 0) > 0;
+
+  // If super admins exist, require matching JWT_SECRET or ADMIN_SETUP_KEY to prevent unauthorized resets
+  const expectedKey = process.env.ADMIN_SETUP_KEY || process.env.JWT_SECRET;
+  if (hasExistingSuperAdmin && secretKey !== expectedKey) {
+    return res.status(403).json({
+      error: 'A Super Admin already exists. To update or reset, provide "secretKey" matching your JWT_SECRET.',
+    });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const hash = await bcrypt.hash(password, 10);
+  const existing = await query('SELECT id FROM agencies WHERE email = $1', [cleanEmail]);
+
+  if (existing.rowCount && existing.rowCount > 0) {
+    await query("UPDATE agencies SET password_hash = $1, role = 'super_admin' WHERE email = $2", [hash, cleanEmail]);
+  } else {
+    await query(
+      `INSERT INTO agencies (name, email, password_hash, role)
+       VALUES ($1, $2, $3, 'super_admin')`,
+      [name, cleanEmail, hash]
+    );
+  }
+
+  return res.json({
+    success: true,
+    message: 'Super Admin credentials provisioned successfully!',
+    email: cleanEmail,
+    role: 'super_admin',
+  });
+}));
+
 export default router;
