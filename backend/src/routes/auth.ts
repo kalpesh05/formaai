@@ -24,16 +24,20 @@ router.post('/signup', asyncHandler(async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Email already registered' });
   }
 
+  // Count existing agencies - the first agency registered is automatically a super_admin / product owner
+  const countResult = await query('SELECT COUNT(*)::int as count FROM agencies');
+  const role = (countResult.rows[0]?.count === 0) ? 'super_admin' : 'agency_user';
+
   const passwordHash = await bcrypt.hash(password, 10);
   const result = await query(
-    `INSERT INTO agencies (name, email, password_hash)
-     VALUES ($1, $2, $3)
-     RETURNING id, name, email, white_label_name, white_label_logo_url, created_at`,
-    [name, email, passwordHash]
+    `INSERT INTO agencies (name, email, password_hash, role)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, name, email, role, white_label_name, white_label_logo_url, created_at`,
+    [name, email, passwordHash, role]
   );
 
   const agency = result.rows[0];
-  const token = jwt.sign({ agencyId: agency.id }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign({ agencyId: agency.id, role: agency.role }, JWT_SECRET, { expiresIn: '7d' });
 
   return res.status(201).json({ token, agency });
 }));
@@ -45,7 +49,7 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   }
 
   const result = await query(
-    `SELECT id, name, email, password_hash, white_label_name, white_label_logo_url
+    `SELECT id, name, email, password_hash, role, white_label_name, white_label_logo_url
      FROM agencies WHERE email = $1`,
     [email]
   );
@@ -60,12 +64,39 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
 
-  const token = jwt.sign({ agencyId: agency.id }, JWT_SECRET, { expiresIn: '7d' });
+  // Fallback role if previously NULL
+  const role = agency.role || 'super_admin';
+  const token = jwt.sign({ agencyId: agency.id, role }, JWT_SECRET, { expiresIn: '7d' });
 
   // Remove sensitive password hash from the response payload
   delete agency.password_hash;
+  agency.role = role;
 
   return res.json({ token, agency });
+}));
+
+router.get('/me', asyncHandler(async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authorization required' });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { agencyId: string; role?: string };
+    const result = await query(
+      `SELECT id, name, email, role, white_label_name, white_label_logo_url, created_at
+       FROM agencies WHERE id = $1`,
+      [decoded.agencyId]
+    );
+    if (!result.rowCount || result.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const agency = result.rows[0];
+    if (!agency.role) agency.role = 'super_admin';
+    return res.json({ agency });
+  } catch (err: any) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
 }));
 
 export default router;

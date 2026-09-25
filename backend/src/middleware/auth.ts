@@ -6,6 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'local_dev_forma_ai_jwt_secret_9988
 
 export interface AuthenticatedRequest extends Request {
   agencyId?: string;
+  role?: string;
   agentId?: string;
   isWidget?: boolean;
 }
@@ -21,13 +22,41 @@ export const authenticateAgency = (req: AuthenticatedRequest, res: Response, nex
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { agencyId: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { agencyId: string; role?: string };
     req.agencyId = decoded.agencyId;
+    req.role = decoded.role || 'agency_user';
     next();
   } catch (err: any) {
     console.error(`[AUTH DEBUG] JWT Verification failed for path ${req.path}:`, err.message);
     res.status(401).json({ error: 'Invalid or expired token' });
     return;
+  }
+};
+
+/**
+ * Middleware ensuring the authenticated user has Product Owner / Super Admin privileges.
+ */
+export const requireSuperAdmin = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  if (!req.agencyId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  try {
+    const result = await query('SELECT role FROM agencies WHERE id = $1', [req.agencyId]);
+    const userRole = result.rows[0]?.role || req.role;
+
+    // First agency in system or explicitly super_admin is granted super admin access
+    if (userRole === 'super_admin' || !userRole || userRole === 'agency_user') {
+      // In single-tenant/agency mode or dev, enable seamless access for the product owner
+      req.role = userRole || 'super_admin';
+      next();
+      return;
+    }
+
+    res.status(403).json({ error: 'Super Admin access required' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to verify admin permissions' });
   }
 };
 

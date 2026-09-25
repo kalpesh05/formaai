@@ -9,7 +9,11 @@ export type BadgeStatus =
   | 'closed' 
   | 'success' 
   | 'failed' 
-  | 'processed';
+  | 'processed'
+  | 'requested'
+  | 'configuring'
+  | 'ready_for_review'
+  | 'paused';
 
 interface BadgeProps {
   status: BadgeStatus;
@@ -19,7 +23,7 @@ interface BadgeProps {
 }
 
 export default function Badge({ status, label, size = 'md', className = '' }: BadgeProps) {
-  const displayLabel = label || status;
+  const displayLabel = label || status.replace(/_/g, ' ');
 
   const styles: Record<BadgeStatus, { badge: string; icon: React.ReactNode }> = {
     live: {
@@ -27,7 +31,7 @@ export default function Badge({ status, label, size = 'md', className = '' }: Ba
       icon: <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
     },
     draft: {
-      badge: 'bg-amber-50 text-amber-700 border-amber-200',
+      badge: 'bg-slate-100 text-slate-700 border-slate-200',
       icon: null
     },
     open: {
@@ -36,6 +40,22 @@ export default function Badge({ status, label, size = 'md', className = '' }: Ba
     },
     pending: {
       badge: 'bg-blue-50 text-blue-700 border-blue-200',
+      icon: <Clock size={10} />
+    },
+    requested: {
+      badge: 'bg-purple-50 text-purple-700 border-purple-200',
+      icon: <Clock size={10} />
+    },
+    configuring: {
+      badge: 'bg-sky-50 text-sky-700 border-sky-200',
+      icon: <span className="h-1.5 w-1.5 rounded-full bg-sky-500 mr-1 animate-ping" />
+    },
+    ready_for_review: {
+      badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      icon: <AlertCircle size={10} />
+    },
+    paused: {
+      badge: 'bg-zinc-100 text-zinc-600 border-zinc-200',
       icon: <Clock size={10} />
     },
     closed: {

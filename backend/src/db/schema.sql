@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS agencies (
   password_hash TEXT NOT NULL,
   white_label_name TEXT,
   white_label_logo_url TEXT,
+  role TEXT NOT NULL DEFAULT 'agency_user',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -17,9 +18,18 @@ CREATE TABLE IF NOT EXISTS client_workspaces (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agency_id UUID NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
   client_name TEXT NOT NULL,
+  contact_name TEXT,
+  contact_email TEXT,
+  contact_phone TEXT,
+  website_url TEXT,
+  industry TEXT,
+  onboarding_status TEXT NOT NULL DEFAULT 'requested' CHECK (onboarding_status IN ('requested', 'configuring', 'ready_for_review', 'live', 'paused')),
+  plan_tier TEXT NOT NULL DEFAULT 'growth' CHECK (plan_tier IN ('starter', 'growth', 'enterprise')),
+  admin_notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_client_workspaces_agency ON client_workspaces(agency_id);
+CREATE INDEX IF NOT EXISTS idx_client_workspaces_status ON client_workspaces(onboarding_status);
 
 -- Agents (one per client workspace, built from a template)
 CREATE TABLE IF NOT EXISTS agents (
@@ -163,3 +173,15 @@ CREATE TABLE IF NOT EXISTS autofix_prs (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_autofix_prs_agent ON autofix_prs(agent_id);
+
+-- Safe migrations for existing databases
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'agency_user';
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS contact_name TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS contact_email TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS contact_phone TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS website_url TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS industry TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS onboarding_status TEXT NOT NULL DEFAULT 'requested';
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS plan_tier TEXT NOT NULL DEFAULT 'growth';
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS admin_notes TEXT;
+

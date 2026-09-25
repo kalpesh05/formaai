@@ -9,6 +9,7 @@ import ingestionRouter from './routes/ingestion';
 import queryRouter from './routes/query';
 import evaluationRouter from './routes/evaluation';
 import autofixRouter from './routes/autofix';
+import adminRouter from './routes/admin';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Routes (Targeting Base URL /api/v1)
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/workspaces', workspacesRouter);
 app.use('/api/v1', agentsRouter);
 app.use('/api/v1', ingestionRouter);

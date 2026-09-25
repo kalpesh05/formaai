@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard';
 import AgentConfig from './pages/AgentConfig';
 import WorkspaceLogs from './pages/WorkspaceLogs';
 import WorkspaceTickets from './pages/WorkspaceTickets';
+import AdminOverview from './pages/AdminOverview';
+import AdminCustomerDetail from './pages/AdminCustomerDetail';
 import AppShell from './components/layout/AppShell';
 import { WorkspaceProvider } from './context/WorkspaceContext';
 import { getToken } from './services/api';
@@ -44,7 +46,33 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
 
-        {/* Protected routes — all wrapped in AppShell with persistent sidebar */}
+        {/* Product Owner Admin Routes */}
+        <Route
+          path="/admin"
+          element={
+            <ShellRoute>
+              <AdminOverview />
+            </ShellRoute>
+          }
+        />
+        <Route
+          path="/admin/customers"
+          element={
+            <ShellRoute>
+              <AdminOverview />
+            </ShellRoute>
+          }
+        />
+        <Route
+          path="/admin/customers/:id"
+          element={
+            <ShellRoute>
+              <AdminCustomerDetail />
+            </ShellRoute>
+          }
+        />
+
+        {/* Protected Client Workspace routes */}
         <Route
           path="/"
           element={
