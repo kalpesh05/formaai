@@ -1,4 +1,5 @@
 import { Router, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import pool, { query } from '../config/db';
 import { AuthenticatedRequest, authenticateAgency, requireSuperAdmin } from '../middleware/auth';
@@ -355,6 +356,38 @@ router.patch('/customers/:id', asyncHandler(async (req: AuthenticatedRequest, re
 
   return res.json(result.rows[0]);
 }));
+
+/**
+ * POST /api/v1/admin/customers/:id/agents/:agentId/deploy
+ * Deploy an agent on behalf of the customer: generates API key and sets status to 'live'
+ */
+router.post('/customers/:id/agents/:agentId/deploy', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id, agentId } = req.params;
+
+  // Verify agent belongs to this workspace
+  const agentCheck = await query(
+    'SELECT id, name FROM agents WHERE id = $1 AND client_workspace_id = $2',
+    [agentId, id]
+  );
+  if (agentCheck.rowCount === 0) {
+    return res.status(404).json({ error: 'Agent not found in this customer workspace' });
+  }
+
+  // Generate cryptographically secure client widget API token with fa_live_ prefix
+  const rawKey = crypto.randomBytes(24).toString('hex');
+  const apiKey = `fa_live_${rawKey}`;
+
+  const result = await query(
+    `UPDATE agents
+     SET status = 'live', api_key = $1
+     WHERE id = $2
+     RETURNING id, name, status, api_key`,
+    [apiKey, agentId]
+  );
+
+  return res.json(result.rows[0]);
+}));
+
 
 /**
  * GET /api/v1/admin/customers/:id/analytics

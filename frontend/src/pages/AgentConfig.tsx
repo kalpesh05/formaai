@@ -1121,12 +1121,24 @@ export default function AgentConfig() {
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-dashed border-slate-300 rounded-lg p-8 text-center text-slate-500 space-y-3">
+                    <div className="border border-dashed border-slate-300 rounded-lg p-8 text-center text-slate-500 space-y-4">
                       <AlertTriangle className="mx-auto text-amber-500" size={32} />
-                      <p className="text-xs font-semibold text-slate-800">Agent not deployed yet</p>
-                      <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
-                        Click <span className="font-semibold text-emerald-600">"Deploy Chatbot"</span> in the top-right header above to publish this agent and generate its live embed script.
-                      </p>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">Agent not deployed yet</p>
+                        <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto mt-1">
+                          Click below or "Deploy Chatbot" in the header to publish this agent and generate its live embed script.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleDeployAgent}
+                        loading={deployLoading}
+                        variant="primary"
+                        size="sm"
+                        icon={<Play size={12} />}
+                        className="bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500 mx-auto"
+                      >
+                        Deploy Chatbot Now
+                      </Button>
                     </div>
                   )}
                 </div>

@@ -3,9 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Building2, Globe, Mail, Phone, ExternalLink,
   Bot, Settings, BarChart2, MessageSquare, Calendar,
-  Copy, Check, Search, AlertCircle, Save, ChevronRight
+  Copy, Check, Search, AlertCircle, Save, ChevronRight, Play
 } from 'lucide-react';
-import { apiRequest } from '../services/api';
+import { apiRequest, API_HOST } from '../services/api';
 import Button from '../components/ui/Button';
 import Badge, { BadgeStatus } from '../components/ui/Badge';
 import Alert from '../components/ui/Alert';
@@ -285,12 +285,33 @@ export default function AdminCustomerDetail() {
   }
 
   const primaryAgent = data.agents[0];
+  const [deployingAgent, setDeployingAgent] = useState(false);
+
+  const handleDeployAgent = async () => {
+    if (!primaryAgent) return;
+    setDeployingAgent(true);
+    try {
+      const res = await apiRequest(`/admin/customers/${id}/agents/${primaryAgent.id}/deploy`, 'POST');
+      setData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          agents: prev.agents.map(a => a.id === primaryAgent.id ? { ...a, status: res.status, api_key: res.api_key } : a)
+        };
+      });
+    } catch (err: any) {
+      alert(`Failed to deploy chatbot: ${err.message}`);
+    } finally {
+      setDeployingAgent(false);
+    }
+  };
+
   const widgetScriptTag = primaryAgent?.api_key
-    ? `<script src="http://localhost:5000/widget.js" data-agent-key="${primaryAgent.api_key}" async></script>`
-    : 'Deploy the agent in Configurator to generate production API Key';
+    ? `<!-- 1. Load Forma AI Chatbot Widget -->\n<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${primaryAgent.id}"\n  data-agent-key="${primaryAgent.api_key}"\n  async>\n</script>`
+    : '';
 
   const copyWidgetCode = () => {
-    if (primaryAgent?.api_key) {
+    if (primaryAgent?.api_key && widgetScriptTag) {
       navigator.clipboard.writeText(widgetScriptTag);
       setCopiedSnippet(true);
       setTimeout(() => setCopiedSnippet(false), 2000);
@@ -577,42 +598,64 @@ export default function AdminCustomerDetail() {
                   <Bot size={16} className="text-brand-400" />
                   Client Embed Script
                 </h3>
-                <button
-                  onClick={copyWidgetCode}
-                  disabled={!primaryAgent?.api_key}
-                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white flex items-center gap-1 transition-colors"
-                >
-                  {copiedSnippet ? (
-                    <>
-                      <Check size={12} className="text-emerald-400" /> Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={12} /> Copy Code
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <p className="text-xs text-slate-400 mb-3">
-                Send this 1-line script tag to the startup to paste in their HTML body tag:
-              </p>
-
-              <pre className="bg-slate-950 p-3 rounded-lg text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap break-all border border-slate-800">
-                {widgetScriptTag}
-              </pre>
-
-              <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400">
-                {primaryAgent?.api_key ? (
-                  <span className="text-emerald-400 flex items-center gap-1">
-                    <Check size={12} /> API Key active &amp; ready for production
-                  </span>
-                ) : (
-                  <span className="text-amber-400 flex items-center gap-1">
-                    <AlertCircle size={12} /> Draft agent — deploy to generate key
-                  </span>
+                {primaryAgent?.api_key && (
+                  <button
+                    onClick={copyWidgetCode}
+                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white flex items-center gap-1 transition-colors"
+                  >
+                    {copiedSnippet ? (
+                      <>
+                        <Check size={12} className="text-emerald-400" /> Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} /> Copy Code
+                      </>
+                    )}
+                  </button>
                 )}
               </div>
+
+              {primaryAgent?.api_key ? (
+                <>
+                  <p className="text-xs text-slate-400 mb-3">
+                    Send this 1-line script tag to the startup to paste before their closing <code>&lt;/body&gt;</code> tag:
+                  </p>
+                  <pre className="bg-slate-950 p-3.5 rounded-lg text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap break-all border border-slate-800 leading-relaxed">
+                    {widgetScriptTag}
+                  </pre>
+                  <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400">
+                    <span className="text-emerald-400 flex items-center gap-1">
+                      <Check size={12} /> API Key active &amp; ready for production
+                    </span>
+                  </div>
+                </>
+              ) : primaryAgent ? (
+                <div className="space-y-4 pt-2">
+                  <div className="bg-slate-800/80 rounded-lg p-3.5 text-xs text-slate-300 border border-slate-700 space-y-1.5">
+                    <p className="font-semibold text-amber-400 flex items-center gap-1.5">
+                      <AlertCircle size={14} /> Agent is in Draft mode
+                    </p>
+                    <p className="text-slate-400 leading-relaxed">
+                      This customer's chatbot has not been deployed yet. Deploy it now to generate its production API key and live website embed code.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleDeployAgent}
+                    loading={deployingAgent}
+                    variant="primary"
+                    size="sm"
+                    icon={<Play size={12} />}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500 justify-center text-xs font-semibold py-2.5"
+                  >
+                    Deploy Chatbot &amp; Generate Embed Script
+                  </Button>
+                </div>
+              ) : (
+                <div className="py-4 text-xs text-slate-400 text-center">
+                  No chatbot provisioned yet for this client workspace.
+                </div>
+              )}
             </div>
 
             {/* Quick Metrics Snapshot */}
