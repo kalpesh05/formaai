@@ -2,9 +2,19 @@ import fs from 'fs';
 import path from 'path';
 import pool from '../config/db';
 
-const schemaPath = path.join(__dirname, 'schema.sql');
+const possiblePaths = [
+  path.join(__dirname, 'schema.sql'),
+  path.join(__dirname, '..', '..', 'src', 'db', 'schema.sql'),
+  path.join(process.cwd(), 'src', 'db', 'schema.sql'),
+  path.join(process.cwd(), 'dist', 'db', 'schema.sql'),
+];
+
+const schemaPath = possiblePaths.find((p) => fs.existsSync(p)) || possiblePaths[0];
 
 export async function runMigrations() {
+  if (!fs.existsSync(schemaPath)) {
+    throw new Error(`schema.sql not found. Looked in: ${possiblePaths.join(', ')}`);
+  }
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
   let retries = 10;
   

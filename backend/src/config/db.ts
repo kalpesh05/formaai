@@ -8,8 +8,16 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+const isRemoteDb =
+  process.env.DATABASE_URL.includes('neon.tech') ||
+  process.env.DATABASE_URL.includes('sslmode=require') ||
+  (process.env.NODE_ENV === 'production' &&
+    !process.env.DATABASE_URL.includes('localhost') &&
+    !process.env.DATABASE_URL.includes('@postgres:'));
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: isRemoteDb ? { rejectUnauthorized: false } : false,
 });
 
 pool.on('error', (err) => {
