@@ -277,7 +277,7 @@ export default function AdminCustomerDetail() {
     return (
       <div className="p-8">
         <Alert type="error">{error || 'Customer not found'}</Alert>
-        <Button onClick={() => navigate('/admin')} className="mt-4">
+        <Button onClick={() => navigate('/customers')} className="mt-4">
           <ArrowLeft size={16} /> Back to Overview
         </Button>
       </div>
@@ -301,7 +301,7 @@ export default function AdminCustomerDetail() {
     <div className="flex-1 overflow-y-auto bg-slate-50 p-8">
       {/* Back Link */}
       <button
-        onClick={() => navigate('/admin')}
+        onClick={() => navigate('/customers')}
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 mb-4 transition-colors"
       >
         <ArrowLeft size={14} /> Back to Customer Directory

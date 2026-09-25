@@ -164,7 +164,7 @@ export default function AdminOverview() {
           workspace_id: res.workspace.id,
         });
       } else {
-        navigate(`/admin/customers/${res.workspace.id}`);
+        navigate(`/customers/${res.workspace.id}`);
       }
     } catch (err: any) {
       setOnboardError(err.message || 'Failed to onboard customer');
@@ -356,7 +356,7 @@ export default function AdminOverview() {
                 filteredCustomers.map((cust) => (
                   <tr
                     key={cust.id}
-                    onClick={() => navigate(`/admin/customers/${cust.id}`)}
+                    onClick={() => navigate(`/customers/${cust.id}`)}
                     className="hover:bg-slate-50/80 cursor-pointer transition-colors"
                   >
                     <td className="py-4 px-6">
@@ -431,7 +431,7 @@ export default function AdminOverview() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/admin/customers/${cust.id}`);
+                          navigate(`/customers/${cust.id}`);
                         }}
                         className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-800"
                       >
@@ -696,7 +696,7 @@ export default function AdminOverview() {
           onClose={() => {
             const wsId = createdCredentials.workspace_id;
             setCreatedCredentials(null);
-            navigate(`/admin/customers/${wsId}`);
+            navigate(`/customers/${wsId}`);
           }}
           title="Client Account &amp; Credentials Ready"
         >
@@ -754,7 +754,7 @@ export default function AdminOverview() {
                 onClick={() => {
                   const wsId = createdCredentials.workspace_id;
                   setCreatedCredentials(null);
-                  navigate(`/admin/customers/${wsId}`);
+                  navigate(`/customers/${wsId}`);
                 }}
               >
                 Proceed to Setup Bot
