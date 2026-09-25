@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { apiRequest, setToken } from '../services/api';
+import { apiRequest, setToken, setUser } from '../services/api';
 import { User, Lock, Mail, Loader, UserPlus, Eye, EyeOff } from 'lucide-react';
 
 export default function Signup() {
@@ -24,6 +24,9 @@ export default function Signup() {
     try {
       const data = await apiRequest('/auth/signup', 'POST', { name, email, password });
       setToken(data.token);
+      if (data.agency) {
+        setUser(data.agency);
+      }
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');

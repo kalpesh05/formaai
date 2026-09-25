@@ -1,4 +1,5 @@
 import { Router, Response, NextFunction } from 'express';
+import bcrypt from 'bcryptjs';
 import pool, { query } from '../config/db';
 import { AuthenticatedRequest, authenticateAgency, requireSuperAdmin } from '../middleware/auth';
 import { TEMPLATES } from '../config/templates';
@@ -144,6 +145,9 @@ router.post('/customers', asyncHandler(async (req: AuthenticatedRequest, res: Re
     admin_notes,
     initial_agent_template, // 'support' | 'sales'
     initial_agent_name,
+    create_login_credentials,
+    login_email,
+    temp_password,
   } = req.body;
 
   if (!client_name) {
@@ -156,6 +160,33 @@ router.post('/customers', asyncHandler(async (req: AuthenticatedRequest, res: Re
   try {
     await clientConn.query('BEGIN');
 
+    // If client login credentials requested, provision user account for client
+    let targetAgencyId = agencyId;
+    let credentials = null;
+
+    if (create_login_credentials && (login_email || contact_email) && temp_password) {
+      const emailToUse = (login_email || contact_email).trim().toLowerCase();
+      const existingUser = await clientConn.query('SELECT id FROM agencies WHERE email = $1', [emailToUse]);
+      
+      if (existingUser.rowCount && existingUser.rowCount > 0) {
+        targetAgencyId = existingUser.rows[0].id;
+      } else {
+        const hash = await bcrypt.hash(temp_password, 10);
+        const userInsert = await clientConn.query(
+          `INSERT INTO agencies (name, email, password_hash, role)
+           VALUES ($1, $2, $3, 'agency_user')
+           RETURNING id, name, email, role, created_at`,
+          [client_name, emailToUse, hash]
+        );
+        targetAgencyId = userInsert.rows[0].id;
+      }
+
+      credentials = {
+        email: emailToUse,
+        temp_password: temp_password,
+      };
+    }
+
     // 1. Create client workspace with full CRM metadata
     const wsResult = await clientConn.query(
       `INSERT INTO client_workspaces (
@@ -165,7 +196,7 @@ router.post('/customers', asyncHandler(async (req: AuthenticatedRequest, res: Re
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
-        agencyId,
+        targetAgencyId,
         client_name,
         contact_name || null,
         contact_email || null,
@@ -205,7 +236,7 @@ router.post('/customers', asyncHandler(async (req: AuthenticatedRequest, res: Re
     }
 
     await clientConn.query('COMMIT');
-    return res.status(201).json({ workspace, agent });
+    return res.status(201).json({ workspace, agent, credentials });
   } catch (error) {
     await clientConn.query('ROLLBACK');
     throw error;

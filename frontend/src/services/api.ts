@@ -1,6 +1,15 @@
 export const API_HOST = (import.meta.env.VITE_API_URL as string) || 'http://localhost:5000';
 export const BASE_URL = `${API_HOST}/api/v1`;
 
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: 'super_admin' | 'agency_user';
+  white_label_name?: string;
+  white_label_logo_url?: string;
+}
+
 export function getToken(): string | null {
   return localStorage.getItem('fa_token');
 }
@@ -11,6 +20,21 @@ export function setToken(token: string) {
 
 export function removeToken() {
   localStorage.removeItem('fa_token');
+  localStorage.removeItem('fa_user');
+}
+
+export function getUser(): UserProfile | null {
+  const raw = localStorage.getItem('fa_user');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+export function setUser(user: UserProfile) {
+  localStorage.setItem('fa_user', JSON.stringify(user));
 }
 
 /**

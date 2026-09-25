@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { apiRequest, setToken } from '../services/api';
+import { apiRequest, setToken, setUser } from '../services/api';
 import { Shield, Lock, Mail, Loader, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
@@ -19,7 +19,14 @@ export default function Login() {
     try {
       const data = await apiRequest('/auth/login', 'POST', { email, password });
       setToken(data.token);
-      navigate('/');
+      if (data.agency) {
+        setUser(data.agency);
+      }
+      if (data.agency?.role === 'super_admin' || window.location.hostname.startsWith('admin.')) {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {

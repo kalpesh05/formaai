@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Users, Bot, MessageSquare, Calendar, Ticket,
   Plus, Search, Mail, ExternalLink,
-  Building2, ChevronRight
+  Building2, ChevronRight, KeyRound, Copy, Check, RefreshCw
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
 import Button from '../components/ui/Button';
@@ -79,6 +79,27 @@ export default function AdminOverview() {
   const [onboardLoading, setOnboardLoading] = useState(false);
   const [onboardError, setOnboardError] = useState('');
 
+  // Client Credential Provisioning state
+  const [createCredentials, setCreateCredentials] = useState(true);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [tempPassword, setTempPassword] = useState('');
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    email: string;
+    temp_password: string;
+    client_name: string;
+    workspace_id: string;
+  } | null>(null);
+  const [copiedWelcome, setCopiedWelcome] = useState(false);
+
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
+    let pwd = '';
+    for (let i = 0; i < 10; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setTempPassword(`Client#${pwd}`);
+  };
+
   useEffect(() => {
     fetchAdminData();
   }, [statusFilter]);
@@ -126,12 +147,25 @@ export default function AdminOverview() {
         onboarding_status: onboardingStatus,
         admin_notes: adminNotes || undefined,
         initial_agent_template: initialAgentTemplate,
+        create_login_credentials: createCredentials,
+        login_email: loginEmail || contactEmail || undefined,
+        temp_password: tempPassword || undefined,
       });
 
       setShowOnboardModal(false);
       resetOnboardForm();
       fetchAdminData();
-      navigate(`/admin/customers/${res.workspace.id}`);
+
+      if (res.credentials) {
+        setCreatedCredentials({
+          email: res.credentials.email,
+          temp_password: res.credentials.temp_password,
+          client_name: res.workspace.client_name,
+          workspace_id: res.workspace.id,
+        });
+      } else {
+        navigate(`/admin/customers/${res.workspace.id}`);
+      }
     } catch (err: any) {
       setOnboardError(err.message || 'Failed to onboard customer');
     } finally {
@@ -150,6 +184,9 @@ export default function AdminOverview() {
     setOnboardingStatus('requested');
     setAdminNotes('');
     setOnboardError('');
+    setCreateCredentials(true);
+    setLoginEmail('');
+    setTempPassword('');
   };
 
   const filteredCustomers = customers.filter(c => {
@@ -561,6 +598,69 @@ export default function AdminOverview() {
             </div>
           </div>
 
+          {/* Client Login Account Provisioning */}
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2.5">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={createCredentials}
+                onChange={(e) => {
+                  setCreateCredentials(e.target.checked);
+                  if (e.target.checked && !tempPassword) {
+                    generateRandomPassword();
+                  }
+                }}
+                className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              />
+              <KeyRound size={14} className="text-brand-500" />
+              <span>Create Client Dashboard Login Account</span>
+            </label>
+
+            {createCredentials && (
+              <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Client Login Email
+                  </label>
+                  <input
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    placeholder={contactEmail || "client@company.com"}
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-1 focus:ring-brand-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Will use contact email if left empty.</p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-semibold text-slate-600">
+                      Temporary Password *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={generateRandomPassword}
+                      className="text-[10px] text-brand-600 hover:text-brand-800 font-semibold flex items-center gap-1"
+                    >
+                      <RefreshCw size={10} /> Generate Random
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    required={createCredentials}
+                    value={tempPassword}
+                    onChange={(e) => setTempPassword(e.target.value)}
+                    placeholder="e.g. Acme#Pass2026!"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs font-mono focus:ring-1 focus:ring-brand-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Client will be prompted to change this password after their first login.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Internal Admin Notes / Customer Requirements
@@ -588,6 +688,81 @@ export default function AdminOverview() {
           </div>
         </form>
       </Modal>
+
+      {/* Hand-off Credentials Modal */}
+      {createdCredentials && (
+        <Modal
+          isOpen={true}
+          onClose={() => {
+            const wsId = createdCredentials.workspace_id;
+            setCreatedCredentials(null);
+            navigate(`/admin/customers/${wsId}`);
+          }}
+          title="Client Account &amp; Credentials Ready"
+        >
+          <div className="space-y-4">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-xs flex items-start gap-2">
+              <Check size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-bold">Client Workspace &amp; Login Provisioned!</strong>
+                <p className="mt-0.5 text-emerald-700">
+                  You can now configure their bot and share these credentials with the client:
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 text-slate-200 p-4 rounded-lg font-mono text-xs space-y-2 border border-slate-800">
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400">Portal URL:</span>
+                <span className="text-emerald-400 font-bold">{window.location.origin}/login</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400">Client Email:</span>
+                <span className="text-white font-bold">{createdCredentials.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Temp Password:</span>
+                <span className="text-amber-400 font-bold">{createdCredentials.temp_password}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  const msg = `Hello ${createdCredentials.client_name} Team,\n\nYour Forma AI assistant workspace is set up and ready!\n\nYou can log in to view your bot, test conversations, and manage leads:\n\n• Login URL: ${window.location.origin}/login\n• Email: ${createdCredentials.email}\n• Temporary Password: ${createdCredentials.temp_password}\n\nPlease change your temporary password under your account profile after logging in.`;
+                  navigator.clipboard.writeText(msg);
+                  setCopiedWelcome(true);
+                  setTimeout(() => setCopiedWelcome(false), 2000);
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5"
+              >
+                {copiedWelcome ? (
+                  <>
+                    <Check size={14} className="text-emerald-400" /> Copied Welcome Message!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} /> Copy Welcome Message &amp; Credentials
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  const wsId = createdCredentials.workspace_id;
+                  setCreatedCredentials(null);
+                  navigate(`/admin/customers/${wsId}`);
+                }}
+              >
+                Proceed to Setup Bot
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -99,4 +99,35 @@ router.get('/me', asyncHandler(async (req: Request, res: Response) => {
   }
 }));
 
+router.post('/change-password', asyncHandler(async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authorization required' });
+  }
+  const token = authHeader.split(' ')[1];
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current password and new password are required' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  }
+
+  const decoded = jwt.verify(token, JWT_SECRET) as { agencyId: string };
+  const userRes = await query('SELECT password_hash FROM agencies WHERE id = $1', [decoded.agencyId]);
+  if (userRes.rowCount === 0) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const isMatch = await bcrypt.compare(currentPassword, userRes.rows[0].password_hash);
+  if (!isMatch) {
+    return res.status(400).json({ error: 'Current password is incorrect' });
+  }
+
+  const newHash = await bcrypt.hash(newPassword, 10);
+  await query('UPDATE agencies SET password_hash = $1 WHERE id = $2', [newHash, decoded.agencyId]);
+
+  return res.json({ message: 'Password updated successfully' });
+}));
+
 export default router;

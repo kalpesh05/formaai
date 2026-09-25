@@ -10,7 +10,7 @@ import AdminOverview from './pages/AdminOverview';
 import AdminCustomerDetail from './pages/AdminCustomerDetail';
 import AppShell from './components/layout/AppShell';
 import { WorkspaceProvider } from './context/WorkspaceContext';
-import { getToken } from './services/api';
+import { getToken, getUser } from './services/api';
 
 /**
  * Route protection wrapper. Redirects unauthenticated agency sessions
@@ -38,6 +38,16 @@ function ShellRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Strict Route protection for Product Owner Super Admin only.
+ * Bounces standard clients back to their workspace dashboard.
+ */
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const user = getUser();
+  const isSuperAdmin = user?.role === 'super_admin' || window.location.hostname.startsWith('admin.');
+  return isSuperAdmin ? <ShellRoute>{children}</ShellRoute> : <Navigate to="/" replace />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -46,29 +56,29 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
 
-        {/* Product Owner Admin Routes */}
+        {/* Product Owner Admin Routes — strictly role-guarded */}
         <Route
           path="/admin"
           element={
-            <ShellRoute>
+            <AdminRoute>
               <AdminOverview />
-            </ShellRoute>
+            </AdminRoute>
           }
         />
         <Route
           path="/admin/customers"
           element={
-            <ShellRoute>
+            <AdminRoute>
               <AdminOverview />
-            </ShellRoute>
+            </AdminRoute>
           }
         />
         <Route
           path="/admin/customers/:id"
           element={
-            <ShellRoute>
+            <AdminRoute>
               <AdminCustomerDetail />
-            </ShellRoute>
+            </AdminRoute>
           }
         />
 
