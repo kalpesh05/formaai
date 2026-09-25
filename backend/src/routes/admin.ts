@@ -385,6 +385,14 @@ router.post('/customers/:id/agents/:agentId/deploy', asyncHandler(async (req: Au
     [apiKey, agentId]
   );
 
+  // Automatically transition onboarding status to 'live' if not already
+  await query(
+    `UPDATE client_workspaces
+     SET onboarding_status = 'live'
+     WHERE id = $1 AND onboarding_status IN ('requested', 'configuring', 'ready_for_review')`,
+    [id]
+  );
+
   return res.json(result.rows[0]);
 }));
 

@@ -287,6 +287,22 @@ export default function AdminCustomerDetail() {
   const primaryAgent = data.agents[0];
   const [deployingAgent, setDeployingAgent] = useState(false);
 
+  // Client Portal link configuration
+  const CLIENT_PORTAL_URL = (import.meta.env.VITE_CLIENT_PORTAL_URL as string) ||
+    (window.location.hostname === 'localhost' ? 'http://localhost:5173' : 'https://formai-kappa.vercel.app');
+
+  // Backend CDN Host URL (editable, saved in localStorage, default fallback to Render production or API_HOST)
+  const initialHost = localStorage.getItem('fa_backend_host') ||
+    (API_HOST.includes('localhost') && window.location.hostname !== 'localhost'
+      ? 'https://formaai-backend.onrender.com'
+      : API_HOST);
+  const [customHost, setCustomHost] = useState(initialHost);
+
+  const handleHostChange = (newHost: string) => {
+    setCustomHost(newHost);
+    localStorage.setItem('fa_backend_host', newHost);
+  };
+
   const handleDeployAgent = async () => {
     if (!primaryAgent) return;
     setDeployingAgent(true);
@@ -296,9 +312,14 @@ export default function AdminCustomerDetail() {
         if (!prev) return prev;
         return {
           ...prev,
+          customer: {
+            ...prev.customer,
+            onboarding_status: 'live'
+          },
           agents: prev.agents.map(a => a.id === primaryAgent.id ? { ...a, status: res.status, api_key: res.api_key } : a)
         };
       });
+      setOnboardingStatus('live');
     } catch (err: any) {
       alert(`Failed to deploy chatbot: ${err.message}`);
     } finally {
@@ -306,8 +327,9 @@ export default function AdminCustomerDetail() {
     }
   };
 
+  const activeHost = (customHost || API_HOST).trim().replace(/\/+$/, '');
   const widgetScriptTag = primaryAgent?.api_key
-    ? `<!-- 1. Load Forma AI Chatbot Widget -->\n<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${primaryAgent.id}"\n  data-agent-key="${primaryAgent.api_key}"\n  async>\n</script>`
+    ? `<!-- 1. Load Forma AI Chatbot Widget -->\n<script\n  src="${activeHost}/widget.js"\n  data-agent-id="${primaryAgent.id}"\n  data-agent-key="${primaryAgent.api_key}"\n  async>\n</script>`
     : '';
 
   const copyWidgetCode = () => {
@@ -383,12 +405,28 @@ export default function AdminCustomerDetail() {
             </div>
 
             {primaryAgent && (
-              <Button
-                onClick={() => navigate(`/workspaces/${data.customer.id}/agents/${primaryAgent.id}`)}
-                className="shadow-sm flex items-center gap-1.5"
-              >
-                <Settings size={15} /> Configure / Tune Bot
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleDeployAgent}
+                  loading={deployingAgent}
+                  variant={primaryAgent.status === 'live' ? 'secondary' : 'primary'}
+                  className={primaryAgent.status === 'live'
+                    ? 'border border-emerald-600/30 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 flex items-center gap-1.5'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5'
+                  }
+                >
+                  <Play size={13} className={primaryAgent.status === 'live' ? 'text-emerald-600 fill-emerald-600' : 'fill-white'} />
+                  {primaryAgent.status === 'live' ? 'Redeploy Bot' : 'Deploy Chatbot'}
+                </Button>
+
+                <Button
+                  onClick={() => window.open(`${CLIENT_PORTAL_URL}/workspaces/${data.customer.id}/agents/${primaryAgent.id}`, '_blank')}
+                  variant="secondary"
+                  className="shadow-sm flex items-center gap-1.5"
+                >
+                  <Settings size={15} /> Configure / Tune Bot <ExternalLink size={12} className="text-slate-400" />
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -593,7 +631,7 @@ export default function AdminCustomerDetail() {
           <div className="space-y-6">
             {/* Widget Embed Code Box */}
             <div className="bg-slate-900 text-slate-200 rounded-xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
                   <Bot size={16} className="text-brand-400" />
                   Client Embed Script
@@ -601,7 +639,7 @@ export default function AdminCustomerDetail() {
                 {primaryAgent?.api_key && (
                   <button
                     onClick={copyWidgetCode}
-                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white flex items-center gap-1 transition-colors"
+                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white flex items-center gap-1 transition-colors border border-slate-700"
                   >
                     {copiedSnippet ? (
                       <>
@@ -616,18 +654,42 @@ export default function AdminCustomerDetail() {
                 )}
               </div>
 
+              {/* Host URL Configuration Input */}
+              <div className="mb-4 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Backend / CDN Host URL
+                </label>
+                <input
+                  type="text"
+                  value={customHost}
+                  onChange={(e) => handleHostChange(e.target.value)}
+                  placeholder="https://your-backend.onrender.com"
+                  className="w-full text-xs font-mono px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded text-emerald-300 focus:outline-none focus:border-brand-500"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Enter your live Render backend URL so the widget script points to production instead of localhost.
+                </p>
+              </div>
+
               {primaryAgent?.api_key ? (
                 <>
-                  <p className="text-xs text-slate-400 mb-3">
+                  <p className="text-xs text-slate-400 mb-2">
                     Send this 1-line script tag to the startup to paste before their closing <code>&lt;/body&gt;</code> tag:
                   </p>
                   <pre className="bg-slate-950 p-3.5 rounded-lg text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap break-all border border-slate-800 leading-relaxed">
                     {widgetScriptTag}
                   </pre>
-                  <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400">
+                  <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
                     <span className="text-emerald-400 flex items-center gap-1">
                       <Check size={12} /> API Key active &amp; ready for production
                     </span>
+                    <button
+                      onClick={handleDeployAgent}
+                      disabled={deployingAgent}
+                      className="text-[11px] text-slate-400 hover:text-white underline transition-colors"
+                    >
+                      {deployingAgent ? 'Deploying...' : 'Redeploy / Rotate Key'}
+                    </button>
                   </div>
                 </>
               ) : primaryAgent ? (
