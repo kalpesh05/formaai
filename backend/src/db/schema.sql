@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS agencies (
   role TEXT NOT NULL DEFAULT 'agency_user',
   created_at TIMESTAMPTZ DEFAULT now()
 );
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'agency_user';
 
 -- Client workspaces (belongs to one agency)
 CREATE TABLE IF NOT EXISTS client_workspaces (
@@ -28,6 +29,17 @@ CREATE TABLE IF NOT EXISTS client_workspaces (
   admin_notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Safe migrations for existing client_workspaces table before indexes
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS contact_name TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS contact_email TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS contact_phone TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS website_url TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS industry TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS onboarding_status TEXT NOT NULL DEFAULT 'requested';
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS plan_tier TEXT NOT NULL DEFAULT 'growth';
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS admin_notes TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_client_workspaces_agency ON client_workspaces(agency_id);
 CREATE INDEX IF NOT EXISTS idx_client_workspaces_status ON client_workspaces(onboarding_status);
 
@@ -174,14 +186,4 @@ CREATE TABLE IF NOT EXISTS autofix_prs (
 );
 CREATE INDEX IF NOT EXISTS idx_autofix_prs_agent ON autofix_prs(agent_id);
 
--- Safe migrations for existing databases
-ALTER TABLE agencies ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'agency_user';
-ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS contact_name TEXT;
-ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS contact_email TEXT;
-ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS contact_phone TEXT;
-ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS website_url TEXT;
-ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS industry TEXT;
-ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS onboarding_status TEXT NOT NULL DEFAULT 'requested';
-ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS plan_tier TEXT NOT NULL DEFAULT 'growth';
-ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS admin_notes TEXT;
 
