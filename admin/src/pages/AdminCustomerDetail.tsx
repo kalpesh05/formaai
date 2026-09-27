@@ -139,6 +139,13 @@ export default function AdminCustomerDetail() {
   // Search filter in conversations
   const [convSearch, setConvSearch] = useState('');
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const [deployingAgent, setDeployingAgent] = useState(false);
+  const [customHost, setCustomHost] = useState(() =>
+    localStorage.getItem('fa_backend_host') ||
+    (API_HOST.includes('localhost') && typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+      ? 'https://formaai-backend.onrender.com'
+      : API_HOST)
+  );
 
   useEffect(() => {
     if (id) {
@@ -284,19 +291,11 @@ export default function AdminCustomerDetail() {
     );
   }
 
-  const primaryAgent = data.agents[0];
-  const [deployingAgent, setDeployingAgent] = useState(false);
+  const primaryAgent = data.agents?.[0];
 
   // Client Portal link configuration
   const CLIENT_PORTAL_URL = (import.meta.env.VITE_CLIENT_PORTAL_URL as string) ||
     (window.location.hostname === 'localhost' ? 'http://localhost:5173' : 'https://formai-kappa.vercel.app');
-
-  // Backend CDN Host URL (editable, saved in localStorage, default fallback to Render production or API_HOST)
-  const initialHost = localStorage.getItem('fa_backend_host') ||
-    (API_HOST.includes('localhost') && window.location.hostname !== 'localhost'
-      ? 'https://formaai-backend.onrender.com'
-      : API_HOST);
-  const [customHost, setCustomHost] = useState(initialHost);
 
   const handleHostChange = (newHost: string) => {
     setCustomHost(newHost);
