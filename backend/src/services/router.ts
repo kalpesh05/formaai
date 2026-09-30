@@ -66,72 +66,89 @@ export function callMockRouter(newMessage: string): RouterResponse {
 }
 
 /**
- * Routes the query to the Gemini 1.5 Flash generative model using native tool-calling schemas 
- * and system prompts. Falls back to callMockRouter if no valid API key is present.
+ * Routes the query to Google Gemini using native tool-calling schemas and system prompts.
+ * Dynamically uses the selected model (default: gemini-3.8-flash) with fallback resilience.
  */
 export async function callGemini(
   systemPrompt: string,
   history: ChatMessage[],
   newMessage: string,
-  tools?: ToolDefinition[]
+  tools?: ToolDefinition[],
+  modelName: string = 'gemini-3.8-flash'
 ): Promise<RouterResponse> {
   
   if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === '' || GEMINI_API_KEY.startsWith('replace_this')) {
     return callMockRouter(newMessage);
   }
 
-  try {
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: systemPrompt,
-    });
+  // Structure chat contents for Gemini
+  const contents: any[] = history.map(h => ({
+    role: h.role,
+    parts: [{ text: h.content }]
+  }));
 
-    // Structure chat contents for Gemini
-    const contents: any[] = history.map(h => ({
-      role: h.role,
-      parts: [{ text: h.content }]
-    }));
+  contents.push({
+    role: 'user',
+    parts: [{ text: newMessage }]
+  });
 
-    contents.push({
-      role: 'user',
-      parts: [{ text: newMessage }]
-    });
-
-    // Format tools payload for Gemini functionDeclarations
-    let declaration: any = undefined;
-    if (tools && tools.length > 0) {
-      declaration = {
-        functionDeclarations: tools.map(t => ({
-          name: t.name,
-          description: t.description,
-          parameters: t.input_schema
-        }))
-      };
-    }
-
-    const response = await model.generateContent({
-      contents,
-      tools: declaration ? [declaration] : undefined,
-    });
-
-    const reply = response.response.text() || '';
-    const toolCalls: { name: string; input: any }[] = [];
-
-    // Parse native function calls from Gemini output
-    const functionCalls = response.response.functionCalls();
-    if (functionCalls && functionCalls.length > 0) {
-      for (const fc of functionCalls) {
-        toolCalls.push({
-          name: fc.name,
-          input: fc.args
-        });
-      }
-    }
-
-    return { reply, toolCalls };
-  } catch (err: any) {
-    console.error('Gemini generative AI completion failed. Falling back to mock. Error:', err.message);
-    return callMockRouter(newMessage);
+  // Format tools payload for Gemini functionDeclarations
+  let declaration: any = undefined;
+  if (tools && tools.length > 0) {
+    declaration = {
+      functionDeclarations: tools.map(t => ({
+        name: t.name,
+        description: t.description,
+        parameters: t.input_schema
+      }))
+    };
   }
+
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
+  // List candidate models: requested model first, then stable fallbacks
+  const requestedModel = (modelName && modelName.trim()) ? modelName.trim() : 'gemini-3.8-flash';
+  const candidateModels = [
+    requestedModel,
+    'gemini-2.0-flash',
+    'gemini-1.5-flash'
+  ].filter((m, idx, arr) => arr.indexOf(m) === idx);
+
+  let lastError: any = null;
+
+  for (const candidate of candidateModels) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: candidate,
+        systemInstruction: systemPrompt,
+      });
+
+      const response = await model.generateContent({
+        contents,
+        tools: declaration ? [declaration] : undefined,
+      });
+
+      const reply = response.response.text() || '';
+      const toolCalls: { name: string; input: any }[] = [];
+
+      // Parse native function calls from Gemini output
+      const functionCalls = response.response.functionCalls();
+      if (functionCalls && functionCalls.length > 0) {
+        for (const fc of functionCalls) {
+          toolCalls.push({
+            name: fc.name,
+            input: fc.args
+          });
+        }
+      }
+
+      return { reply, toolCalls };
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[Forma AI] Gemini model '${candidate}' invocation failed: ${err.message}. Trying next candidate...`);
+    }
+  }
+
+  console.error('All Gemini model candidates failed. Error:', lastError?.message);
+  return callMockRouter(newMessage);
 }

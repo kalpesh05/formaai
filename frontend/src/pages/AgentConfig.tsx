@@ -7,7 +7,8 @@ import {
   Globe, AlertTriangle, Play, RefreshCw, Send, 
   ArrowLeft, Loader, Copy, Check, Trash2,
   FileUp, X, ShieldCheck, UserCheck, GitPullRequest,
-  Database, Activity, Calendar, Ticket, ChevronDown, ChevronUp, SlidersHorizontal
+  Database, Activity, Calendar, Ticket, ChevronDown, ChevronUp, SlidersHorizontal,
+  Zap, Cpu, Sparkles, Info
 } from 'lucide-react';
 import Toggle from '../components/ui/Toggle';
 import Badge from '../components/ui/Badge';
@@ -16,6 +17,136 @@ import Alert from '../components/ui/Alert';
 import EvaluationSuite from '../components/agent/EvaluationSuite';
 import CopilotQueue from '../components/agent/CopilotQueue';
 import AutoFixDashboard from '../components/agent/AutoFixDashboard';
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  badge?: string;
+  badgeStyle?: string;
+  speed: string;
+  speedRating: number;
+  reasoning: string;
+  cost: string;
+  outputDescription: string;
+  bestFor: string;
+}
+
+export const PROVIDER_MODELS: Record<string, ModelOption[]> = {
+  gemini: [
+    {
+      id: 'gemini-3.8-flash',
+      name: 'Gemini 3.8 Flash',
+      badge: 'Recommended · Latest Gen',
+      badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      speed: '~350ms (Ultra-Low Latency)',
+      speedRating: 5,
+      reasoning: 'High (Grounding & Tool Calling)',
+      cost: 'Lowest Cost per Token',
+      outputDescription: 'Natural, crisp responses with tight context adherence. Follows system prompt guidelines strictly and triggers tools with 99%+ accuracy.',
+      bestFor: '24/7 Live Website Support, Sales Assistants & Lead Qualification'
+    },
+    {
+      id: 'gemini-3.5-flash-lite',
+      name: 'Gemini 3.5 Flash-Lite',
+      badge: 'Maximum Speed & Volume',
+      badgeStyle: 'bg-blue-50 text-blue-700 border-blue-200',
+      speed: '~220ms (Instantaneous)',
+      speedRating: 5,
+      reasoning: 'Good (Direct FAQ Matching)',
+      cost: 'Budget / High-Throughput',
+      outputDescription: 'Short, punchy, direct answers. Avoids unnecessary conversational filler and resolves user questions in minimum tokens.',
+      bestFor: 'High-volume portals, simple FAQ deflection, and rapid documentation lookups'
+    },
+    {
+      id: 'gemini-3.1-pro',
+      name: 'Gemini 3.1 Pro',
+      badge: 'Deep Reasoning & Code',
+      badgeStyle: 'bg-purple-50 text-purple-700 border-purple-200',
+      speed: '~1.1s (Analytical)',
+      speedRating: 3,
+      reasoning: 'Superior (Multi-Step Logic)',
+      cost: 'Standard Pro',
+      outputDescription: 'Highly structured, analytical output with comprehensive explanations. Excels at complex policy synthesis, error diagnostics, and code-level troubleshooting.',
+      bestFor: 'Technical support, Auto-Fix code diagnostics, and complex multi-tool workflows'
+    },
+    {
+      id: 'gemini-2.0-flash',
+      name: 'Gemini 2.0 Flash',
+      badge: 'Balanced All-Rounder',
+      badgeStyle: 'bg-slate-100 text-slate-700 border-slate-200',
+      speed: '~500ms (Very Fast)',
+      speedRating: 4,
+      reasoning: 'High',
+      cost: 'Low Cost',
+      outputDescription: 'Balanced conversational tone with good reasoning and reliable tool invocation.',
+      bestFor: 'General customer inquiry bots and standard agency deployments'
+    },
+    {
+      id: 'gemini-1.5-flash',
+      name: 'Gemini 1.5 Flash',
+      badge: 'Legacy Baseline',
+      badgeStyle: 'bg-amber-50 text-amber-700 border-amber-200',
+      speed: '~800ms (Standard)',
+      speedRating: 3,
+      reasoning: 'Standard',
+      cost: 'Baseline',
+      outputDescription: 'Earlier generation architecture. Suitable for backwards-compatibility testing.',
+      bestFor: 'Fallback environments and older API quota allocations'
+    }
+  ],
+  openai: [
+    {
+      id: 'gpt-4o-mini',
+      name: 'GPT-4o Mini',
+      badge: 'Recommended',
+      badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      speed: '~400ms (Fast)',
+      speedRating: 5,
+      reasoning: 'High',
+      cost: 'Economy',
+      outputDescription: 'Concise, dependable responses with fast turn-around times.',
+      bestFor: 'Standard live chat and customer query routing'
+    },
+    {
+      id: 'gpt-4o',
+      name: 'GPT-4o',
+      badge: 'Omni Reasoning',
+      badgeStyle: 'bg-purple-50 text-purple-700 border-purple-200',
+      speed: '~800ms (Moderate)',
+      speedRating: 4,
+      reasoning: 'Superior',
+      cost: 'Premium',
+      outputDescription: 'Rich, natural conversational prose with deep contextual synthesis.',
+      bestFor: 'Nuanced high-touch sales conversations and VIP client support'
+    }
+  ],
+  anthropic: [
+    {
+      id: 'claude-3-5-sonnet',
+      name: 'Claude 3.5 Sonnet',
+      badge: 'Recommended',
+      badgeStyle: 'bg-purple-50 text-purple-700 border-purple-200',
+      speed: '~700ms (Moderate)',
+      speedRating: 4,
+      reasoning: 'Superior (Human-Grade)',
+      cost: 'Standard',
+      outputDescription: 'Warm, articulate human-like responses with exceptional adherence to strict negative constraints.',
+      bestFor: 'White-glove customer service, technical diagnostics, and developer documentation'
+    },
+    {
+      id: 'claude-3-haiku',
+      name: 'Claude 3 Haiku',
+      badge: 'Fast & Lightweight',
+      badgeStyle: 'bg-blue-50 text-blue-700 border-blue-200',
+      speed: '~300ms (Fast)',
+      speedRating: 5,
+      reasoning: 'Good',
+      cost: 'Economy',
+      outputDescription: 'Crisp, brief answers designed for low-latency deflection.',
+      bestFor: 'Basic FAQ lookup and simple triage'
+    }
+  ]
+};
 
 interface Agent {
   id: string;
@@ -511,7 +642,7 @@ export default function AgentConfig() {
                   )}
                 </div>
                 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Agent Name</label>
                     <input
@@ -527,8 +658,11 @@ export default function AgentConfig() {
                     <select
                       value={provider}
                       onChange={(e) => {
-                        setProvider(e.target.value);
-                        if (e.target.value === 'gemini') setModel('gemini-1.5-flash');
+                        const newProv = e.target.value;
+                        setProvider(newProv);
+                        if (newProv === 'gemini') setModel('gemini-3.8-flash');
+                        else if (newProv === 'openai') setModel('gpt-4o-mini');
+                        else if (newProv === 'anthropic') setModel('claude-3-5-sonnet');
                         setIsDirty(true);
                       }}
                       className="w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 text-sm"
@@ -536,34 +670,6 @@ export default function AgentConfig() {
                       <option value="gemini">Google Gemini</option>
                       <option value="openai">OpenAI</option>
                       <option value="anthropic">Anthropic</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Model Selection</label>
-                    <select
-                      value={model}
-                      onChange={(e) => { setModel(e.target.value); setIsDirty(true); }}
-                      className="w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 text-sm"
-                    >
-                      {provider === 'gemini' ? (
-                        <>
-                          <option value="gemini-1.5-flash">gemini-1.5-flash (Recommended)</option>
-                          <option value="gemini-1.5-pro">gemini-1.5-pro</option>
-                        </>
-                      ) : provider === 'openai' ? (
-                        <>
-                          <option value="gpt-4o-mini">gpt-4o-mini</option>
-                          <option value="gpt-4o">gpt-4o</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
-                          <option value="claude-3-haiku">claude-3-haiku</option>
-                        </>
-                      )}
                     </select>
                   </div>
                   <div>
@@ -586,6 +692,132 @@ export default function AgentConfig() {
                       <span>Strict / Exact (0.0)</span>
                       <span>Balanced (0.7)</span>
                       <span>Creative (1.0)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Model & Performance Architecture */}
+                <div className="border border-slate-200 rounded-xl p-5 bg-slate-50/50 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <Cpu size={16} className="text-brand-600" />
+                        AI Model &amp; Performance Architecture
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Select your intelligence tier. Compare response latency, reasoning depth, and output behavior below.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-500">Active Model:</span>
+                      <span className="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-md border border-brand-200">
+                        {model}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Model Cards Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                    {(PROVIDER_MODELS[provider] || PROVIDER_MODELS.gemini).map((opt) => {
+                      const isSelected = model === opt.id;
+                      return (
+                        <div
+                          key={opt.id}
+                          onClick={() => {
+                            setModel(opt.id);
+                            setIsDirty(true);
+                          }}
+                          className={`relative text-left p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-brand-600 bg-white ring-2 ring-brand-500/20 shadow-sm'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                          }`}
+                        >
+                          <div>
+                            {/* Card Header */}
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                                  isSelected ? 'border-brand-600 bg-brand-600' : 'border-slate-300'
+                                }`}>
+                                  {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                </div>
+                                <span className="font-bold text-sm text-slate-800">{opt.name}</span>
+                              </div>
+                              {opt.badge && (
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${opt.badgeStyle}`}>
+                                  {opt.badge}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Performance Metrics */}
+                            <div className="grid grid-cols-3 gap-1.5 py-2 my-2 border-y border-slate-100 text-[11px]">
+                              <div className="space-y-0.5">
+                                <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                                  <Zap size={11} className="text-amber-500" /> Latency
+                                </span>
+                                <span className="font-semibold text-slate-700 block truncate" title={opt.speed}>
+                                  {opt.speed}
+                                </span>
+                              </div>
+                              <div className="space-y-0.5">
+                                <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                                  <Cpu size={11} className="text-indigo-500" /> Reasoning
+                                </span>
+                                <span className="font-semibold text-slate-700 block truncate" title={opt.reasoning}>
+                                  {opt.reasoning}
+                                </span>
+                              </div>
+                              <div className="space-y-0.5">
+                                <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                                  <Sparkles size={11} className="text-emerald-500" /> Cost Tier
+                                </span>
+                                <span className="font-semibold text-slate-700 block truncate" title={opt.cost}>
+                                  {opt.cost}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Output Behavior Difference */}
+                            <div className="mt-2 space-y-1">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                Output Style &amp; Behavior:
+                              </span>
+                              <p className="text-xs text-slate-600 leading-relaxed">
+                                {opt.outputDescription}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Best For Footer */}
+                          <div className="mt-3 pt-2 border-t border-slate-100">
+                            <span className="text-[11px] font-medium text-brand-700 bg-brand-50/80 px-2 py-0.5 rounded block truncate" title={opt.bestFor}>
+                              🎯 {opt.bestFor}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Custom Model ID Entry */}
+                  <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
+                    <span className="flex items-center gap-1.5">
+                      <Info size={13} className="text-slate-400" />
+                      Need an experimental, fine-tuned, or custom preview model ID?
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. gemini-3.8-flash-custom"
+                        value={model}
+                        onChange={(e) => {
+                          setModel(e.target.value.trim());
+                          setIsDirty(true);
+                        }}
+                        className="px-2.5 py-1 text-xs rounded-md border border-slate-300 font-mono bg-white focus:outline-none focus:ring-1 focus:ring-brand-500 text-slate-800 w-52"
+                      />
                     </div>
                   </div>
                 </div>

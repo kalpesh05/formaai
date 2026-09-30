@@ -97,7 +97,7 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
 
   // 2. Fetch agent configuration details
   const agentResult = await query(
-    `SELECT id, config, template_type, status FROM agents WHERE id = $1`,
+    `SELECT id, config, template_type, status, llm_model, llm_provider FROM agents WHERE id = $1`,
     [agentId]
   );
   if (!agentResult.rowCount || agentResult.rowCount === 0) {
@@ -231,12 +231,14 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
     );
     const mappedTools = mapAgentTools(toolsResult.rows);
 
-    // 8. Invoke the Gemini LLM router
+    // 8. Invoke the Gemini LLM router with agent's chosen model
+    const activeModel = agent.llm_model || 'gemini-3.8-flash';
     let routerResponse = await callGemini(
       systemPrompt,
       chatHistory,
       message,
-      mappedTools
+      mappedTools,
+      activeModel
     );
 
     // If Gemini requests a tool execution, execute it and feed the output back to the model
@@ -305,7 +307,7 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
         try {
           const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
           const model = genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash',
+            model: activeModel,
             systemInstruction: systemPrompt,
           });
 
