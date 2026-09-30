@@ -177,6 +177,40 @@
         opacity: 0.5;
         cursor: default;
       }
+      #fa-glitch-toast {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        position: absolute;
+        bottom: 75px;
+        right: 0;
+        width: 300px;
+        background: #0f172a;
+        color: white;
+        padding: 12px 14px;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        border: 1px solid #334155;
+        font-size: 12px;
+        animation: faToastFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 999999;
+      }
+      @keyframes faToastFadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      #fa-glitch-toast-close {
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        cursor: pointer;
+        color: #94a3b8;
+        font-size: 14px;
+        line-height: 1;
+      }
+      #fa-glitch-toast-close:hover {
+        color: white;
+      }
     `;
     document.head.appendChild(style);
 
@@ -302,6 +336,110 @@
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
       return bubble;
     }
+
+    // 5. Autonomous Error Sniffer & Diagnostic Reporter
+    const reportedErrors = new Set();
+
+    function showGlitchNotification(prUrl) {
+      if (document.getElementById('fa-glitch-toast')) return;
+      const toast = document.createElement('div');
+      toast.id = 'fa-glitch-toast';
+      toast.innerHTML = `
+        <span id="fa-glitch-toast-close">&times;</span>
+        <div style="font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+          <span>🛡️ Autonomous Auto-Fix</span>
+        </div>
+        <div style="color: #cbd5e1; font-size: 11px; line-height: 1.4;">
+          A runtime glitch was automatically detected on this page. An engineering diagnostic reproduction test and code patch have been generated!
+        </div>
+        ${prUrl ? `<a href="${prUrl}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; font-size: 11px; text-decoration: underline; margin-top: 4px; display: inline-block;">View Pull Request &rarr;</a>` : ''}
+      `;
+      container.appendChild(toast);
+
+      document.getElementById('fa-glitch-toast-close')?.addEventListener('click', () => {
+        toast.remove();
+      });
+
+      setTimeout(() => {
+        toast?.remove();
+      }, 9000);
+    }
+
+    function reportBrowserError(errorData) {
+      if (!errorData || !errorData.message) return;
+
+      const src = errorData.sourceFile || '';
+      // Ignore browser extensions and third-party widgets
+      if (src.includes('chrome-extension://') || src.includes('moz-extension://') || src.includes('safari-extension://')) {
+        return;
+      }
+
+      // Deduplicate identical errors in this session
+      const errorHash = `${errorData.message}_${errorData.sourceFile}_${errorData.lineNumber}`;
+      if (reportedErrors.has(errorHash)) {
+        return;
+      }
+      reportedErrors.add(errorHash);
+
+      const sessionCtx = Object.assign({}, window.__forma_user_context || {}, {
+        currentPage: window.location.pathname,
+        url: window.location.href,
+        referrer: document.referrer || undefined,
+        userAgent: navigator.userAgent
+      });
+
+      const payload = {
+        message: errorData.message,
+        source_file: errorData.sourceFile,
+        line_number: errorData.lineNumber,
+        column_number: errorData.columnNumber,
+        error_trace: errorData.stack || `${errorData.message} at ${errorData.sourceFile}:${errorData.lineNumber}`,
+        user_context: sessionCtx
+      };
+
+      const crashEndpoint = apiHost
+        ? `${apiHost}/api/v1/agents/${agentId}/telemetry/crash`
+        : `/api/v1/agents/${agentId}/telemetry/crash`;
+
+      fetch(crashEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Agent-Key': apiKey
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.autofix_pr_url) {
+          console.log('[Forma AI Auto-Fix] Autonomous PR synthesized:', data.autofix_pr_url);
+          showGlitchNotification(data.autofix_pr_url);
+        }
+      })
+      .catch(() => {});
+    }
+
+    // Global listeners
+    window.addEventListener('error', (event) => {
+      reportBrowserError({
+        message: event.message || (event.error && event.error.message) || 'Uncaught runtime exception',
+        sourceFile: event.filename,
+        lineNumber: event.lineno,
+        columnNumber: event.colno,
+        stack: event.error ? event.error.stack : `${event.message} at ${event.filename}:${event.lineno}`
+      });
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason;
+      reportBrowserError({
+        message: reason?.message || String(reason) || 'Unhandled Promise Rejection',
+        sourceFile: window.location.href,
+        lineNumber: 0,
+        columnNumber: 0,
+        stack: reason?.stack || String(reason)
+      });
+    });
   }
 
   if (document.readyState === 'loading') {
