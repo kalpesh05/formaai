@@ -9,9 +9,29 @@
     }
   };
 
-  // 1. Wait for page load and read configuration attributes from script tag
-  window.addEventListener('DOMContentLoaded', () => {
-    const script = document.querySelector('script[data-agent-key]');
+  // Capture currentScript reference immediately while synchronous
+  const currentScriptRef = document.currentScript;
+
+  // 1. Initialize widget when DOM is ready (or immediately if already loaded)
+  function initWidget() {
+    if (!document.body) {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initWidget, { once: true });
+      } else {
+        window.addEventListener('load', initWidget, { once: true });
+      }
+      return;
+    }
+
+    // Prevent duplicate injection
+    if (document.getElementById('fa-widget-container')) {
+      return;
+    }
+
+    const script = currentScriptRef ||
+      document.querySelector('script[data-agent-key]') ||
+      document.querySelector('script[src*="widget.js"]');
+
     if (!script) {
       console.error('Forma AI Widget: Script tag with data-agent-key not found.');
       return;
@@ -282,5 +302,11 @@
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
       return bubble;
     }
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWidget, { once: true });
+  } else {
+    initWidget();
+  }
 })();
