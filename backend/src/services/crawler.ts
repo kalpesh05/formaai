@@ -73,15 +73,30 @@ export async function crawlDocumentationSite(
           
           // Only crawl within the same hostname
           if (resolvedUrl.hostname === allowedHostname) {
-            // Only crawl paths within base documentation path if provided
-            if (basePath && !resolvedUrl.pathname.startsWith(basePath)) {
-              return;
-            }
-            
             // Ignore non-HTML assets
             const extMatch = resolvedUrl.pathname.match(/\.([a-z0-9]+)$/i);
             if (extMatch && !['html', 'htm'].includes(extMatch[1].toLowerCase())) {
               return;
+            }
+
+            // Exclude common non-content links
+            if (/\/(login|signin|signup|privacy|terms|cart|cdn-cgi)\b/i.test(resolvedUrl.pathname)) {
+              return;
+            }
+
+            // If it's a dedicated help/docs subdomain, crawl all documentation and article paths on this host
+            const isDedicatedDocDomain = allowedHostname.startsWith('help.') || 
+                                         allowedHostname.startsWith('docs.') || 
+                                         allowedHostname.includes('gitbook') ||
+                                         allowedHostname.includes('readme.io') ||
+                                         allowedHostname.includes('notion.site');
+
+            if (!isDedicatedDocDomain && basePath) {
+              // Extract top-level doc prefix (e.g. /docs from /docs/getting-started)
+              const rootPrefix = '/' + basePath.split('/').filter(Boolean)[0];
+              if (!resolvedUrl.pathname.startsWith(rootPrefix)) {
+                return;
+              }
             }
 
             const cleanUrl = normalizeUrl(resolvedUrl.href);

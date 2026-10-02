@@ -1453,7 +1453,7 @@ export default function AgentConfig() {
 
                     {chatMessages.map((msg, i) => (
                       <div key={i} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
-                        <div className={`max-w-[85%] rounded-lg px-4 py-2.5 text-xs leading-relaxed ${
+                        <div className={`max-w-[85%] rounded-lg px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap ${
                           msg.sender === 'user' 
                             ? 'bg-brand-600 text-white rounded-br-none' 
                             : 'bg-slate-100 text-slate-800 rounded-bl-none border border-slate-200'

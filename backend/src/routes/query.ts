@@ -214,7 +214,7 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
 
     let systemPrompt = basePrompt;
     if (chunksText) {
-      systemPrompt = `${basePrompt}\n\nUse the following retrieved context information from our knowledge base to answer the user query. Do not hallucinate outside this context. Strictly preserve code syntax and formulas.\nContext information:\n---------------------\n${chunksText}\n---------------------\n`;
+      systemPrompt = `${basePrompt}\n\nUse the following retrieved context information from our knowledge base to answer the user query. Do not hallucinate outside this context. Strictly preserve code syntax and formulas. When referring to integrations, documentation, or tools mentioned in the context, always include direct markdown links [Action or Resource Title](url) so users can click or connect immediately.\nContext information:\n---------------------\n${chunksText}\n---------------------\n`;
     }
 
     if (user_context && typeof user_context === 'object') {

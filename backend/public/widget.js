@@ -124,11 +124,62 @@
         background-color: #f8fafc;
       }
       .fa-message {
-        max-width: 80%;
-        padding: 8px 12px;
-        border-radius: 8px;
+        max-width: 85%;
+        padding: 10px 14px;
+        border-radius: 12px;
         font-size: 13px;
-        line-height: 1.4;
+        line-height: 1.5;
+        word-break: break-word;
+      }
+      .fa-message p {
+        margin: 0 0 8px 0;
+      }
+      .fa-message p:last-child {
+        margin-bottom: 0;
+      }
+      .fa-message ul, .fa-message ol {
+        margin: 6px 0 8px 0;
+        padding-left: 20px;
+      }
+      .fa-message li {
+        margin-bottom: 4px;
+      }
+      .fa-message li:last-child {
+        margin-bottom: 0;
+      }
+      .fa-message strong {
+        font-weight: 600;
+      }
+      .fa-message a {
+        color: #0284c7;
+        text-decoration: underline;
+        font-weight: 500;
+      }
+      .fa-message a.fa-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #0284c7;
+        color: white !important;
+        text-decoration: none !important;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        margin: 4px 0;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        transition: background 0.15s ease, transform 0.1s ease;
+      }
+      .fa-message a.fa-btn:hover {
+        background: #0369a1;
+        transform: translateY(-1px);
+      }
+      .fa-message code {
+        background: rgba(0, 0, 0, 0.06);
+        padding: 2px 4px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
       }
       .fa-message.user {
         background-color: #0284c7;
@@ -137,7 +188,7 @@
         border-bottom-right-radius: 0;
       }
       .fa-message.bot {
-        background-color: #e2e8f0;
+        background-color: #f1f5f9;
         color: #1e293b;
         align-self: flex-start;
         border-bottom-left-radius: 0;
@@ -328,10 +379,81 @@
       }
     });
 
+    function formatMarkdown(text) {
+      if (!text) return '';
+
+      // 1. Escape HTML special characters to prevent injection
+      let safe = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      // 2. Bold (**text** or __text__)
+      safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      safe = safe.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+      // 3. Italic (*text* or _text_)
+      safe = safe.replace(/(^|[^\*])\*([^\*\n]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
+
+      // 4. Links [text](url) - detect action words (Connect, Import, Open, Setup, etc.) to render as buttons
+      safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, function(match, text, url) {
+        const isAction = /^(connect|import|open|view|authorize|start|setup|login|access|get|explore)\b/i.test(text.trim());
+        if (isAction) {
+          return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="fa-btn">${text} &rarr;</a>`;
+        }
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+      });
+
+      // 5. Inline code `code`
+      safe = safe.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // 6. Handle lists and paragraphs line-by-line
+      const lines = safe.split('\n');
+      let html = '';
+      let inUl = false;
+      let inOl = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        if (!line) {
+          if (inUl) { html += '</ul>'; inUl = false; }
+          if (inOl) { html += '</ol>'; inOl = false; }
+          continue;
+        }
+
+        const bulletMatch = line.match(/^[\*\-]\s+(.*)$/);
+        const numberMatch = line.match(/^(\d+)\.\s+(.*)$/);
+
+        if (bulletMatch) {
+          if (inOl) { html += '</ol>'; inOl = false; }
+          if (!inUl) { html += '<ul>'; inUl = true; }
+          html += `<li>${bulletMatch[1]}</li>`;
+        } else if (numberMatch) {
+          if (inUl) { html += '</ul>'; inUl = false; }
+          if (!inOl) { html += '<ol>'; inOl = true; }
+          html += `<li>${numberMatch[2]}</li>`;
+        } else {
+          if (inUl) { html += '</ul>'; inUl = false; }
+          if (inOl) { html += '</ol>'; inOl = false; }
+          html += `<p>${line}</p>`;
+        }
+      }
+
+      if (inUl) html += '</ul>';
+      if (inOl) html += '</ol>';
+
+      return html;
+    }
+
     function appendMessage(sender, text) {
       const bubble = document.createElement('div');
       bubble.className = `fa-message ${sender}`;
-      bubble.innerText = text;
+      if (sender === 'bot') {
+        bubble.innerHTML = formatMarkdown(text);
+      } else {
+        bubble.innerText = text;
+      }
       messagesContainer.appendChild(bubble);
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
       return bubble;

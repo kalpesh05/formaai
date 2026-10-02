@@ -106,46 +106,57 @@ export async function callGemini(
 
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-  // List candidate models: requested model first, then stable fallbacks
+  // List candidate models: requested model first, then modern high-availability fallbacks
   const requestedModel = (modelName && modelName.trim()) ? modelName.trim() : 'gemini-3.8-flash';
   const candidateModels = [
     requestedModel,
-    'gemini-2.0-flash',
-    'gemini-1.5-flash'
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-pro',
+    'gemini-3.8-flash'
   ].filter((m, idx, arr) => arr.indexOf(m) === idx);
 
   let lastError: any = null;
 
   for (const candidate of candidateModels) {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: candidate,
-        systemInstruction: systemPrompt,
-      });
+    // Retry once on transient demand spikes (503 Service Unavailable or 429 Rate Limit)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: candidate,
+          systemInstruction: systemPrompt,
+        });
 
-      const response = await model.generateContent({
-        contents,
-        tools: declaration ? [declaration] : undefined,
-      });
+        const response = await model.generateContent({
+          contents,
+          tools: declaration ? [declaration] : undefined,
+        });
 
-      const reply = response.response.text() || '';
-      const toolCalls: { name: string; input: any }[] = [];
+        const reply = response.response.text() || '';
+        const toolCalls: { name: string; input: any }[] = [];
 
-      // Parse native function calls from Gemini output
-      const functionCalls = response.response.functionCalls();
-      if (functionCalls && functionCalls.length > 0) {
-        for (const fc of functionCalls) {
-          toolCalls.push({
-            name: fc.name,
-            input: fc.args
-          });
+        // Parse native function calls from Gemini output
+        const functionCalls = response.response.functionCalls();
+        if (functionCalls && functionCalls.length > 0) {
+          for (const fc of functionCalls) {
+            toolCalls.push({
+              name: fc.name,
+              input: fc.args
+            });
+          }
         }
-      }
 
-      return { reply, toolCalls };
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`[Forma AI] Gemini model '${candidate}' invocation failed: ${err.message}. Trying next candidate...`);
+        return { reply, toolCalls };
+      } catch (err: any) {
+        lastError = err;
+        const isTransient = err.message?.includes('503') || err.message?.includes('high demand') || err.message?.includes('429');
+        if (isTransient && attempt === 0) {
+          console.warn(`[Forma AI] Gemini model '${candidate}' hit transient spike (${err.message}). Retrying in 800ms...`);
+          await new Promise(res => setTimeout(res, 800));
+          continue;
+        }
+        console.warn(`[Forma AI] Gemini model '${candidate}' invocation failed: ${err.message}. Trying next candidate...`);
+        break;
+      }
     }
   }
 
