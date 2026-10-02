@@ -29,8 +29,9 @@ export function generateMockEmbedding(text: string): number[] {
 }
 
 /**
- * Request a 768-dimension vector embedding using Gemini text-embedding-004.
- * Falls back to generateMockEmbedding if no valid API key is present in environment variables.
+ * Request a 768-dimension vector embedding using Gemini embedding models.
+ * Uses gemini-embedding-001 (or embedding-001), normalized to 768 dimensions for pgvector.
+ * Falls back to generateMockEmbedding if no valid API key is present or API calls fail.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   if (!text) {
@@ -41,15 +42,32 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     return generateMockEmbedding(text);
   }
 
-  try {
-    const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
-    const result = await model.embedContent(text);
-    if (!result.embedding || !result.embedding.values) {
-      throw new Error('Invalid response structure from Gemini Embedding API');
+  const candidateModels = ['gemini-embedding-001', 'embedding-001'];
+  let lastError: any = null;
+
+  for (const modelName of candidateModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.embedContent({
+        content: { role: 'user', parts: [{ text }] },
+        // @ts-ignore
+        outputDimensionality: 768
+      });
+
+      if (result.embedding && result.embedding.values && result.embedding.values.length > 0) {
+        let values = result.embedding.values;
+        if (values.length > 768) {
+          values = values.slice(0, 768);
+        } else if (values.length < 768) {
+          values = values.concat(new Array(768 - values.length).fill(0));
+        }
+        return values;
+      }
+    } catch (err: any) {
+      lastError = err;
     }
-    return result.embedding.values;
-  } catch (err: any) {
-    console.error('Gemini Embedding API call failed. Falling back to mock. Error:', err.message);
-    return generateMockEmbedding(text);
   }
+
+  console.warn('Gemini Embedding API call failed. Falling back to mock. Error:', lastError?.message);
+  return generateMockEmbedding(text);
 }
