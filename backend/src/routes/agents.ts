@@ -41,14 +41,15 @@ router.post('/workspaces/:workspaceId/agents', authenticateAgency, asyncHandler(
     return res.status(400).json({ error: 'template_type and name are required' });
   }
 
-  if (template_type !== 'support' && template_type !== 'sales') {
-    return res.status(400).json({ error: 'template_type must be support or sales' });
+  const validTemplates = Object.keys(TEMPLATES);
+  if (!validTemplates.includes(template_type)) {
+    return res.status(400).json({ error: `template_type must be one of: ${validTemplates.join(', ')}` });
   }
 
   // Verify workspace ownership
   await assertWorkspaceBelongsToAgency(workspaceId, agencyId);
 
-  const preset = TEMPLATES[template_type as 'support' | 'sales'];
+  const preset = TEMPLATES[template_type as keyof typeof TEMPLATES];
 
   // Checkout a dedicated client connection from the pool for transactional queries
   const client = await pool.connect();

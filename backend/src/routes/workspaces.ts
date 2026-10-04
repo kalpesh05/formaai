@@ -1,6 +1,7 @@
 import { Router, Response, NextFunction } from 'express';
 import { AuthenticatedRequest, authenticateAgency, assertWorkspaceBelongsToAgency } from '../middleware/auth';
 import { query } from '../config/db';
+import { resolveTicketWithAgent } from '../services/ticketResolver';
 
 const router = Router();
 
@@ -178,7 +179,7 @@ router.get('/:workspaceId/logs', asyncHandler(async (req: AuthenticatedRequest, 
   return res.json(result.rows);
 }));
 
-// GET /api/v1/workspaces/:workspaceId/tickets - List all support tickets created by agents in the workspace
+// GET /api/v1/workspaces/:workspaceId/tickets - List all tickets with agent assignment & automated status
 router.get('/:workspaceId/tickets', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { workspaceId } = req.params;
   const agencyId = req.agencyId!;
@@ -187,15 +188,135 @@ router.get('/:workspaceId/tickets', asyncHandler(async (req: AuthenticatedReques
   await assertWorkspaceBelongsToAgency(workspaceId, agencyId);
 
   const result = await query(
-    `SELECT t.id, t.subject, t.description, t.status, t.created_at, a.name as agent_name
+    `SELECT 
+       t.id, 
+       t.agent_id, 
+       t.assigned_agent_id, 
+       t.subject, 
+       t.description, 
+       t.department, 
+       t.priority, 
+       t.status, 
+       t.automated_status, 
+       t.resolution_summary, 
+       t.created_at, 
+       a.name as agent_name,
+       aa.name as assigned_agent_name,
+       aa.template_type as assigned_agent_type,
+       pr.github_pr_url,
+       pr.branch_name,
+       pr.patch_diff,
+       pr.reproduction_test
      FROM tickets t
      JOIN agents a ON t.agent_id = a.id
+     LEFT JOIN agents aa ON t.assigned_agent_id = aa.id
+     LEFT JOIN autofix_prs pr ON t.id = pr.ticket_id
      WHERE a.client_workspace_id = $1
      ORDER BY t.created_at DESC`,
     [workspaceId]
   );
 
   return res.json(result.rows);
+}));
+
+// POST /api/v1/workspaces/:workspaceId/tickets - Manually submit a ticket/task for the agent workforce
+router.post('/:workspaceId/tickets', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { workspaceId } = req.params;
+  const agencyId = req.agencyId!;
+  const { subject, description, department, priority, assigned_agent_id } = req.body;
+
+  if (!subject || !description) {
+    return res.status(400).json({ error: 'subject and description are required' });
+  }
+
+  await assertWorkspaceBelongsToAgency(workspaceId, agencyId);
+
+  // Find default or creator agent in workspace
+  let agentId = assigned_agent_id;
+  if (!agentId) {
+    const defaultAgentRes = await query(
+      `SELECT id FROM agents WHERE client_workspace_id = $1 ORDER BY created_at ASC LIMIT 1`,
+      [workspaceId]
+    );
+    if (!defaultAgentRes.rowCount || defaultAgentRes.rowCount === 0) {
+      return res.status(400).json({ error: 'Please create an AI agent in this workspace first' });
+    }
+    agentId = defaultAgentRes.rows[0].id;
+  }
+
+  const insertRes = await query(
+    `INSERT INTO tickets (agent_id, assigned_agent_id, subject, description, department, priority, status, automated_status)
+     VALUES ($1, $2, $3, $4, $5, $6, 'open', 'idle')
+     RETURNING id, agent_id, assigned_agent_id, subject, description, department, priority, status, automated_status, created_at`,
+    [agentId, assigned_agent_id || null, subject, description, department || 'support', priority || 'medium']
+  );
+
+  return res.status(201).json(insertRes.rows[0]);
+}));
+
+// PATCH /api/v1/workspaces/:workspaceId/tickets/:ticketId - Update assignment, status, or priority
+router.patch('/:workspaceId/tickets/:ticketId', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { workspaceId, ticketId } = req.params;
+  const agencyId = req.agencyId!;
+  const { assigned_agent_id, status, priority, department } = req.body;
+
+  await assertWorkspaceBelongsToAgency(workspaceId, agencyId);
+
+  const updates: string[] = [];
+  const values: any[] = [];
+  let idx = 1;
+
+  if (assigned_agent_id !== undefined) {
+    updates.push(`assigned_agent_id = $${idx++}`);
+    values.push(assigned_agent_id || null);
+  }
+  if (status !== undefined) {
+    updates.push(`status = $${idx++}`);
+    values.push(status);
+  }
+  if (priority !== undefined) {
+    updates.push(`priority = $${idx++}`);
+    values.push(priority);
+  }
+  if (department !== undefined) {
+    updates.push(`department = $${idx++}`);
+    values.push(department);
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'No fields to update' });
+  }
+
+  values.push(ticketId);
+  const q = `
+    UPDATE tickets 
+    SET ${updates.join(', ')} 
+    WHERE id = $${idx}
+    RETURNING *
+  `;
+  const result = await query(q, values);
+  if (!result.rowCount || result.rowCount === 0) {
+    return res.status(404).json({ error: 'Ticket not found' });
+  }
+
+  return res.json(result.rows[0]);
+}));
+
+// POST /api/v1/workspaces/:workspaceId/tickets/:ticketId/resolve - Trigger autonomous AI resolution
+router.post('/:workspaceId/tickets/:ticketId/resolve', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { workspaceId, ticketId } = req.params;
+  const agencyId = req.agencyId!;
+  const { agent_id } = req.body;
+
+  await assertWorkspaceBelongsToAgency(workspaceId, agencyId);
+
+  const resolutionResult = await resolveTicketWithAgent({
+    ticketId,
+    agentId: agent_id,
+    agencyId
+  });
+
+  return res.json(resolutionResult);
 }));
 
 export default router;

@@ -43,19 +43,22 @@ ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS admin_notes TEXT;
 CREATE INDEX IF NOT EXISTS idx_client_workspaces_agency ON client_workspaces(agency_id);
 CREATE INDEX IF NOT EXISTS idx_client_workspaces_status ON client_workspaces(onboarding_status);
 
--- Agents (one per client workspace, built from a template)
+-- Agents (belongs to client workspace, built from a template)
 CREATE TABLE IF NOT EXISTS agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_workspace_id UUID NOT NULL REFERENCES client_workspaces(id) ON DELETE CASCADE,
-  template_type TEXT NOT NULL CHECK (template_type IN ('support', 'sales')),
+  template_type TEXT NOT NULL CHECK (template_type IN ('support', 'sales', 'hr', 'backend_dev', 'frontend_dev', 'qa_tester', 'router')),
   name TEXT NOT NULL,
-  llm_provider TEXT NOT NULL DEFAULT 'anthropic',
-  llm_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-6',
+  llm_provider TEXT NOT NULL DEFAULT 'gemini',
+  llm_model TEXT NOT NULL DEFAULT 'gemini-3.8-flash',
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'live', 'paused')),
   config JSONB NOT NULL DEFAULT '{}',
   api_key TEXT UNIQUE, -- issued on deploy, used by widget
   created_at TIMESTAMPTZ DEFAULT now()
 );
+ALTER TABLE agents DROP CONSTRAINT IF EXISTS agents_template_type_check;
+ALTER TABLE agents ADD CONSTRAINT agents_template_type_check 
+  CHECK (template_type IN ('support', 'sales', 'hr', 'backend_dev', 'frontend_dev', 'qa_tester', 'router'));
 CREATE INDEX IF NOT EXISTS idx_agents_workspace ON agents(client_workspace_id);
 
 -- Data sources
@@ -85,10 +88,13 @@ CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks USING ivfflat (embeddi
 CREATE TABLE IF NOT EXISTS agent_tools (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-  tool_type TEXT NOT NULL CHECK (tool_type IN ('calendar_booking', 'ticket_create', 'database_query', 'sentry_telemetry')),
+  tool_type TEXT NOT NULL CHECK (tool_type IN ('calendar_booking', 'ticket_create', 'database_query', 'sentry_telemetry', 'github_pr', 'code_sandbox', 'handoff_agent')),
   tool_config JSONB NOT NULL DEFAULT '{}',
   enabled BOOLEAN DEFAULT true
 );
+ALTER TABLE agent_tools DROP CONSTRAINT IF EXISTS agent_tools_tool_type_check;
+ALTER TABLE agent_tools ADD CONSTRAINT agent_tools_tool_type_check 
+  CHECK (tool_type IN ('calendar_booking', 'ticket_create', 'database_query', 'sentry_telemetry', 'github_pr', 'code_sandbox', 'handoff_agent'));
 CREATE INDEX IF NOT EXISTS idx_agent_tools_agent ON agent_tools(agent_id);
 
 -- Action log (audit trail)
@@ -121,16 +127,27 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 
--- Support Tickets (filed by Support Agent tools)
+-- Support & Work Tickets (filed by users or agents)
 CREATE TABLE IF NOT EXISTS tickets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  assigned_agent_id UUID REFERENCES agents(id) ON DELETE SET NULL,
   subject TEXT NOT NULL,
   description TEXT NOT NULL,
+  department TEXT NOT NULL DEFAULT 'support',
+  priority TEXT NOT NULL DEFAULT 'medium',
   status TEXT NOT NULL DEFAULT 'open',
+  automated_status TEXT NOT NULL DEFAULT 'idle',
+  resolution_summary TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS assigned_agent_id UUID REFERENCES agents(id) ON DELETE SET NULL;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS department TEXT NOT NULL DEFAULT 'support';
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'medium';
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS automated_status TEXT NOT NULL DEFAULT 'idle';
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolution_summary TEXT;
 CREATE INDEX IF NOT EXISTS idx_tickets_agent ON tickets(agent_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_assigned_agent ON tickets(assigned_agent_id);
 
 -- Evaluation Suite Runs (Benchmark verification before production)
 CREATE TABLE IF NOT EXISTS evaluation_runs (

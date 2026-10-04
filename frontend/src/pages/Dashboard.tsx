@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest } from '../services/api';
 import {
-  Building2, Plus, Bot, ArrowRight, Sparkles,
+  Building2, Plus, Bot, ArrowRight, Sparkles, Users, Terminal, Layout, ShieldCheck
 } from 'lucide-react';
 import { useWorkspace } from '../context/WorkspaceContext';
 import Button from '../components/ui/Button';
@@ -11,9 +11,11 @@ import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import Alert from '../components/ui/Alert';
 
+export type TemplateType = 'support' | 'sales' | 'hr' | 'backend_dev' | 'frontend_dev' | 'qa_tester' | 'router';
+
 interface Agent {
   id: string;
-  template_type: 'support' | 'sales';
+  template_type: TemplateType;
   name: string;
   llm_provider: string;
   llm_model: string;
@@ -34,7 +36,7 @@ export default function Dashboard() {
 
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [newAgentName, setNewAgentName] = useState('');
-  const [newAgentTemplate, setNewAgentTemplate] = useState<'support' | 'sales'>('support');
+  const [newAgentTemplate, setNewAgentTemplate] = useState<TemplateType>('backend_dev');
 
   const [actionError, setActionError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -296,32 +298,97 @@ export default function Dashboard() {
 
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Agent Template
+              Select Agent Specialty
             </label>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-80 overflow-y-auto pr-1">
+              {/* Backend Dev */}
+              <div
+                onClick={() => setNewAgentTemplate('backend_dev')}
+                className={`border rounded-lg p-3 cursor-pointer hover:border-brand-500 transition-all text-left space-y-1 ${
+                  newAgentTemplate === 'backend_dev'
+                    ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
+                    : 'border-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 text-indigo-700 font-bold text-xs">
+                  <Terminal size={14} /> Backend Engineer
+                </div>
+                <div className="text-[11px] text-slate-500 leading-tight">Diagnoses crashes, writes Jest tests & patch diffs</div>
+              </div>
+
+              {/* Frontend Dev */}
+              <div
+                onClick={() => setNewAgentTemplate('frontend_dev')}
+                className={`border rounded-lg p-3 cursor-pointer hover:border-brand-500 transition-all text-left space-y-1 ${
+                  newAgentTemplate === 'frontend_dev'
+                    ? 'border-sky-600 bg-sky-50/60 ring-1 ring-sky-600'
+                    : 'border-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 text-sky-700 font-bold text-xs">
+                  <Layout size={14} /> Frontend UI Specialist
+                </div>
+                <div className="text-[11px] text-slate-500 leading-tight">Fixes React components, responsive layouts & CSS</div>
+              </div>
+
+              {/* QA Tester */}
+              <div
+                onClick={() => setNewAgentTemplate('qa_tester')}
+                className={`border rounded-lg p-3 cursor-pointer hover:border-brand-500 transition-all text-left space-y-1 ${
+                  newAgentTemplate === 'qa_tester'
+                    ? 'border-purple-600 bg-purple-50/60 ring-1 ring-purple-600'
+                    : 'border-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 text-purple-700 font-bold text-xs">
+                  <ShieldCheck size={14} /> QA & Automation
+                </div>
+                <div className="text-[11px] text-slate-500 leading-tight">Writes test suites, edge-case matrix & verifies PRs</div>
+              </div>
+
+              {/* HR Concierge */}
+              <div
+                onClick={() => setNewAgentTemplate('hr')}
+                className={`border rounded-lg p-3 cursor-pointer hover:border-brand-500 transition-all text-left space-y-1 ${
+                  newAgentTemplate === 'hr'
+                    ? 'border-emerald-600 bg-emerald-50/60 ring-1 ring-emerald-600'
+                    : 'border-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs">
+                  <Users size={14} /> HR & People Ops
+                </div>
+                <div className="text-[11px] text-slate-500 leading-tight">Internal staff concierge for policy, leave & handbook</div>
+              </div>
+
+              {/* Customer Support */}
               <div
                 onClick={() => setNewAgentTemplate('support')}
-                className={`border rounded-lg p-3.5 cursor-pointer hover:border-brand-500 transition-all text-center space-y-1 ${
+                className={`border rounded-lg p-3 cursor-pointer hover:border-brand-500 transition-all text-left space-y-1 ${
                   newAgentTemplate === 'support'
-                    ? 'border-brand-600 bg-brand-50/50 ring-1 ring-brand-600'
+                    ? 'border-brand-600 bg-brand-50/60 ring-1 ring-brand-600'
                     : 'border-slate-200'
                 }`}
               >
-                <Sparkles className="mx-auto text-brand-600 mb-1" size={16} />
-                <div className="font-bold text-xs text-slate-900">Customer Support</div>
-                <div className="text-[10px] text-slate-400">Pre-seeded with ticket escalation</div>
+                <div className="flex items-center gap-1.5 text-brand-700 font-bold text-xs">
+                  <Sparkles size={14} /> Support Engineer
+                </div>
+                <div className="text-[11px] text-slate-500 leading-tight">Customer Q&A, DB queries & escalation tickets</div>
               </div>
+
+              {/* Product Sales */}
               <div
                 onClick={() => setNewAgentTemplate('sales')}
-                className={`border rounded-lg p-3.5 cursor-pointer hover:border-brand-500 transition-all text-center space-y-1 ${
+                className={`border rounded-lg p-3 cursor-pointer hover:border-brand-500 transition-all text-left space-y-1 ${
                   newAgentTemplate === 'sales'
-                    ? 'border-brand-600 bg-brand-50/50 ring-1 ring-brand-600'
+                    ? 'border-amber-600 bg-amber-50/60 ring-1 ring-amber-600'
                     : 'border-slate-200'
                 }`}
               >
-                <Sparkles className="mx-auto text-brand-600 mb-1" size={16} />
-                <div className="font-bold text-xs text-slate-900">Product Sales</div>
-                <div className="text-[10px] text-slate-400">Pre-seeded with calendar bookings</div>
+                <div className="flex items-center gap-1.5 text-amber-700 font-bold text-xs">
+                  <Sparkles size={14} /> Sales & Booking
+                </div>
+                <div className="text-[11px] text-slate-500 leading-tight">Inbound lead qualification & Cal.com demo booking</div>
               </div>
             </div>
           </div>
