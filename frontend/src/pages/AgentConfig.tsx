@@ -1478,8 +1478,13 @@ export default function AgentConfig() {
                     ))}
 
                     {chatLoading && (
-                      <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-                        <Loader className="animate-spin" size={14} /> Agent is thinking...
+                      <div className="flex items-center gap-2 text-slate-500 text-xs bg-slate-100 rounded-full px-3.5 py-1.5 w-fit border border-slate-200 animate-pulse">
+                        <div className="flex gap-1 items-center">
+                          <span className="w-1.5 h-1.5 bg-brand-600 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                          <span className="w-1.5 h-1.5 bg-brand-600 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                          <span className="w-1.5 h-1.5 bg-brand-600 rounded-full animate-bounce"></span>
+                        </div>
+                        <span className="font-medium text-[11px]">Thinking &amp; drafting response...</span>
                       </div>
                     )}
                     <div ref={chatEndRef} />
