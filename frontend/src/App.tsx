@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import AgentConfig from './pages/AgentConfig';
 import WorkspaceLogs from './pages/WorkspaceLogs';
 import WorkspaceTickets from './pages/WorkspaceTickets';
+import Documentation from './pages/Documentation';
 import AppShell from './components/layout/AppShell';
 import { WorkspaceProvider } from './context/WorkspaceContext';
 import { getToken } from './services/api';
@@ -77,6 +78,15 @@ function App() {
           element={
             <ShellRoute>
               <WorkspaceTickets />
+            </ShellRoute>
+          }
+        />
+
+        <Route
+          path="/docs"
+          element={
+            <ShellRoute>
+              <Documentation />
             </ShellRoute>
           }
         />

@@ -263,4 +263,37 @@ router.post('/agents/:id/autofix/prs/:prId/reject', authenticateAgency, asyncHan
   });
 }));
 
+/**
+ * POST /api/v1/agents/:id/beta-test/run
+ * Triggers an Autonomous AI Beta Testing session on a Web URL or Electron Desktop app.
+ */
+router.post('/agents/:id/beta-test/run', authenticateAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id: agentId } = req.params;
+  const agencyId = req.agencyId!;
+  await assertAgentBelongsToAgency(agentId, agencyId);
+
+  const { targetType, targetUrlOrPath, personaPrompt, maxSteps, autoFix } = req.body;
+
+  if (!targetUrlOrPath) {
+    return res.status(400).json({ error: 'targetUrlOrPath is required (e.g. staging URL or Electron app path)' });
+  }
+
+  const { AIBetaTester } = require('../services/ai-beta-tester');
+  const tester = new AIBetaTester({
+    targetType: targetType === 'electron' ? 'electron' : 'web',
+    targetUrlOrPath,
+    agentId,
+    personaPrompt,
+    maxSteps: maxSteps || 10,
+    autoFix: autoFix !== false
+  });
+
+  const report = await tester.runSession();
+
+  return res.status(200).json({
+    success: true,
+    report
+  });
+}));
+
 export default router;

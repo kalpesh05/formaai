@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Plus, LogOut, LayoutDashboard,
-  FileText, Ticket, Loader, KeyRound, Check
+  FileText, Ticket, Loader, KeyRound, Check, BookOpen
 } from 'lucide-react';
 import { removeToken, getUser, apiRequest } from '../../services/api';
 import { useWorkspace } from '../../context/WorkspaceContext';
@@ -155,6 +155,11 @@ export default function AppShell({ children }: AppShellProps) {
                 </NavLink>
               </>
             )}
+
+            <NavLink to="/docs" className={navLinkClass}>
+              <BookOpen size={18} />
+              <span>Docs &amp; Setup Guider</span>
+            </NavLink>
 
             {!selectedWs && !loadingWs && (
               <div className="px-3 py-2 text-xs text-slate-600 italic">
