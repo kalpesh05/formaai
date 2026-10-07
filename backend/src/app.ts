@@ -10,6 +10,7 @@ import queryRouter from './routes/query';
 import evaluationRouter from './routes/evaluation';
 import autofixRouter from './routes/autofix';
 import adminRouter from './routes/admin';
+import mailboxRouter from './routes/mailbox';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/v1', ingestionRouter);
 app.use('/api/v1', queryRouter);
 app.use('/api/v1', evaluationRouter);
 app.use('/api/v1', autofixRouter);
+app.use('/api/v1', mailboxRouter);
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {

@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import {
   Sparkles, Code2, Bot,
   Copy, Check, Send, ShieldCheck,
-  Globe, Laptop, Smartphone, Terminal, HelpCircle
+  Globe, Laptop, Smartphone, Terminal, HelpCircle, Mail
 } from 'lucide-react';
 import { useWorkspace } from '../context/WorkspaceContext';
 
 export default function Documentation() {
   const { selectedWs } = useWorkspace();
-  const [activeTab, setActiveTab] = useState<'wizard' | 'architecture' | 'personas' | 'api' | 'faq'>('wizard');
+  const [activeTab, setActiveTab] = useState<'wizard' | 'mailbox' | 'architecture' | 'personas' | 'api' | 'faq'>('wizard');
 
   // Wizard state
   const [platform, setPlatform] = useState<'web' | 'electron' | 'flutter'>('web');
@@ -147,6 +147,8 @@ void main() {
         reply = "You can trigger an AI Beta Test either from our API or CLI. Gemini will inspect your DOM, click buttons, enter boundary inputs, and report any crashes directly to the Auto-Fix engine.";
       } else if (lower.includes('flutter') || lower.includes('mobile')) {
         reply = "For Flutter, intercept FlutterError.onError in main.dart and dispatch an HTTP POST to our crash receiver endpoint with your X-Agent-Key header.";
+      } else if (lower.includes('email') || lower.includes('mailbox') || lower.includes('mail') || lower.includes('forward')) {
+        reply = "To connect email support, go to Support Mailbox > Mailbox Settings. Copy your unique forwarding address and forward support@yourdomain.com to it (or configure a SendGrid/Postmark webhook to /api/v1/integrations/email/webhook). Incoming emails will be parsed, grounded with RAG, and generate Copilot Drafts or instant AI replies!";
       }
 
       setChatMessages(prev => [...prev, { sender: 'agent', text: reply }]);
@@ -178,6 +180,17 @@ void main() {
               }`}
             >
               Interactive Wizard
+            </button>
+            <button
+              onClick={() => setActiveTab('mailbox')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                activeTab === 'mailbox'
+                  ? 'bg-brand-500 text-white shadow-sm'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <Mail size={13} />
+              Support Mailbox Guide
             </button>
             <button
               onClick={() => setActiveTab('architecture')}
@@ -409,10 +422,10 @@ void main() {
                   How does Auto-Fix PR work?
                 </button>
                 <button
-                  onClick={() => setInputQuery('Can I test an Electron app?')}
+                  onClick={() => setInputQuery('How do I connect our company support email?')}
                   className="text-[10px] bg-white border border-slate-300 rounded px-2 py-0.5 text-slate-600 hover:bg-slate-50"
                 >
-                  Can I test Electron?
+                  Connect Support Email?
                 </button>
               </div>
 
@@ -436,7 +449,156 @@ void main() {
           </div>
         )}
 
-        {/* TAB 2: THE CLOSED-LOOP ARCHITECTURE */}
+        {/* TAB 2: SUPPORT MAILBOX & EMAIL CONNECTOR GUIDE */}
+        {activeTab === 'mailbox' && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 space-y-8">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand-600 mb-1">
+                <Mail size={14} /> Omnichannel Support Mailbox Connector
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">How to Connect and Use the Support Mailbox</h2>
+              <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
+                Transform your Forma AI agent from a website widget into a complete customer support email desk. Customer inquiries sent to your official support email (<code className="text-slate-800 bg-slate-100 px-1 py-0.5 rounded">support@yourcompany.com</code>) are automatically parsed, grounded against your RAG knowledge base, and handled according to your policy.
+              </p>
+            </div>
+
+            {/* 3 Modes Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
+                    Recommended
+                  </span>
+                  <Sparkles size={16} className="text-purple-600" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">1. Copilot Mode</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  The AI drafts grounded email answers with verified citation percentages. Your team reviews the draft in the dashboard and clicks <strong>"Approve &amp; Send"</strong> or edits it in 1 click.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                    Hands-Free
+                  </span>
+                  <Bot size={16} className="text-emerald-600" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">2. Autonomous Mode</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Inquiries matching knowledge base vectors above your confidence threshold (e.g. 75%) are automatically answered and sent back via SMTP instantly. Low-confidence queries drop into tickets or Copilot review.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                    Team Inbox
+                  </span>
+                  <Check size={16} className="text-blue-600" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">3. Manual Mode</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Acts as a collaborative shared support desk for human agents to manage conversation history, assign threads, and reply directly from the dashboard.
+                </p>
+              </div>
+            </div>
+
+            {/* Step-by-Step Setup Guide */}
+            <div className="space-y-6 pt-2">
+              <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
+                Step-by-Step Setup &amp; Configuration
+              </h3>
+
+              <div className="space-y-4 text-xs">
+                {/* Step 1 */}
+                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <span className="h-5 w-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px]">1</span>
+                    Get Your Workspace Forwarding Address
+                  </div>
+                  <p className="text-slate-600 pl-7">
+                    Open <strong>Support Mailbox</strong> in your workspace sidebar, click <strong>Mailbox Settings</strong>, and copy your inbound address:
+                  </p>
+                  <div className="pl-7">
+                    <code className="block bg-slate-900 text-brand-300 p-2.5 rounded font-mono text-[11px]">
+                      inbound+{selectedWs?.id || 'your-workspace-id'}@mail.formaai.com
+                    </code>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <span className="h-5 w-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px]">2</span>
+                    Configure Email Forwarding or Webhook
+                  </div>
+                  <div className="pl-7 space-y-2 text-slate-600">
+                    <p>You can connect in either of two ways:</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>
+                        <strong>Auto-Forwarding (Fastest):</strong> In Google Workspace, Gmail, or Microsoft 365, set an auto-forwarding rule from <code className="text-slate-800 bg-white px-1 py-0.5 rounded border border-slate-200">support@yourcompany.com</code> to your Forma AI inbound forwarding address.
+                      </li>
+                      <li>
+                        <strong>Cloudflare Email Routing (Free):</strong> Route emails from your domain directly to your inbound address with zero server setup.
+                      </li>
+                      <li>
+                        <strong>Inbound Webhook (SendGrid, Postmark, Mailgun, AWS SES):</strong> Point your inbound parse webhook to:
+                        <code className="block mt-1 bg-slate-900 text-emerald-300 p-2 rounded font-mono text-[11px]">
+                          POST {currentHost}/api/v1/integrations/email/webhook
+                        </code>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <span className="h-5 w-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px]">3</span>
+                    Configure Outbound SMTP in Server Environment
+                  </div>
+                  <p className="text-slate-600 pl-7">
+                    To deliver email replies back to customers from your official support address, ensure SMTP credentials are set in <code className="text-slate-800 bg-white px-1 py-0.5 rounded border border-slate-200">backend/.env</code>:
+                  </p>
+                  <div className="pl-7">
+                    <pre className="bg-slate-900 text-slate-200 p-3 rounded font-mono text-[11px] overflow-x-auto">
+{`SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=support@yourcompany.com
+SMTP_PASS=your_app_password
+AGENCY_ALERT_EMAIL=admin@youragency.com`}
+                    </pre>
+                  </div>
+                </div>
+
+                {/* Step 4 */}
+                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <span className="h-5 w-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px]">4</span>
+                    Test Inbound Flow with the Built-in Simulator
+                  </div>
+                  <p className="text-slate-600 pl-7">
+                    You don't need to wait for live DNS propagation to test. Simply navigate to <strong>Support Mailbox</strong>, click <strong>"Test Email Inbound"</strong>, type a sample inquiry, and watch the AI retrieve your knowledge vectors and generate a draft in real time!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Safeguards Note */}
+            <div className="bg-slate-900 rounded-xl p-5 text-white space-y-2">
+              <h4 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                <ShieldCheck className="text-emerald-400" size={16} />
+                Built-in Safeguards &amp; Thread Preservation
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Forma AI automatically strips quoted past email history (<code className="text-slate-200">&gt; ...</code>) before vector search so older threads never pollute RAG retrieval. Additionally, bounce notifications (<code className="text-slate-200">mailer-daemon</code>, <code className="text-slate-200">noreply</code>) and automated out-of-office loops are ignored to prevent infinite mail loops. Outbound replies always include proper <code className="text-slate-200">In-Reply-To</code> and <code className="text-slate-200">References</code> headers to keep customer email clients organized in one continuous thread.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: THE CLOSED-LOOP ARCHITECTURE */}
         {activeTab === 'architecture' && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 space-y-8">
             <div>
@@ -592,6 +754,13 @@ void main() {
                 <h4 className="text-xs font-bold text-slate-900">How does the AI Beta Tester explore Electron apps?</h4>
                 <p className="text-xs text-slate-500 mt-1">
                   Because Electron is built on Chromium, our Playwright driver hooks into the Chrome DevTools Protocol (CDP) to drive mouse clicks, form inputs, and window state.
+                </p>
+              </div>
+
+              <div className="pb-1">
+                <h4 className="text-xs font-bold text-slate-900">How do I connect our company support email to the AI Mailbox?</h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  Navigate to <strong>Support Mailbox &gt; Mailbox Settings</strong>. Copy your unique inbound forwarding address (or point your SendGrid / Postmark / Cloudflare inbound webhook to <code className="text-slate-800 bg-slate-100 px-1 py-0.5 rounded">/api/v1/integrations/email/webhook</code>). Set auto-forwarding on your company email (<code className="text-slate-800 bg-slate-100 px-1 py-0.5 rounded">support@yourcompany.com</code>) to that address. Incoming emails will immediately show up in your inbox with AI drafts or instant replies!
                 </p>
               </div>
             </div>

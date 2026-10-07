@@ -13,6 +13,10 @@ Forma AI is a production-ready, white-label, multi-tenant AI Chatbot SaaS platfo
 * **Agentic Tool Execution Loop:** Real-time recursive function calling in Gemini:
   * **Sales Preset:** Schedules bookings via the **Cal.com API** (using 30-minute ISO slot boundaries and multi-tenant keys).
   * **Support Preset:** Inserts support tickets directly into the database `tickets` table and dispatches alert emails via **Nodemailer SMTP** when escalation is requested.
+* **Omnichannel Support Mailbox & AI Auto-Responder:** Inbound email webhook and shared team inbox. Customer inquiries arriving via email are vectorized through RAG grounding, offering 3 configurable modes:
+  * **Autonomous:** Instant AI responses sent via SMTP when confidence exceeds threshold.
+  * **Copilot:** AI drafts grounded email answers for 1-click human review and sign-off.
+  * **Manual:** Shared team inbox for direct collaborative human response.
 * **Activity Traces & Audits:** Exposes database logging tables showing execution traces (`action_logs`) and customer support tickets.
 * **Interactive Sandbox Playground:** Test prompt guidelines, check RAG vector matches, and verify action loop executions in real-time inside the dashboard.
 

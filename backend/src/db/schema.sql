@@ -203,4 +203,54 @@ CREATE TABLE IF NOT EXISTS autofix_prs (
 );
 CREATE INDEX IF NOT EXISTS idx_autofix_prs_agent ON autofix_prs(agent_id);
 
+-- Workspace Support Mailbox Configurations
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS mailbox_forwarding_address TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS mailbox_support_email TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS mailbox_mode TEXT NOT NULL DEFAULT 'copilot';
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS mailbox_auto_threshold NUMERIC(5, 4) NOT NULL DEFAULT 0.7500;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS mailbox_assigned_agent_id UUID REFERENCES agents(id) ON DELETE SET NULL;
+
+-- Support Mailbox Threads (Aggregates ongoing customer email conversations)
+CREATE TABLE IF NOT EXISTS mailbox_threads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_workspace_id UUID NOT NULL REFERENCES client_workspaces(id) ON DELETE CASCADE,
+  agent_id UUID REFERENCES agents(id) ON DELETE SET NULL,
+  subject TEXT NOT NULL,
+  customer_email TEXT NOT NULL,
+  customer_name TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'pending', 'resolved', 'closed')),
+  ai_status TEXT NOT NULL DEFAULT 'needs_review' CHECK (ai_status IN ('auto_replied', 'draft_ready', 'needs_review', 'manual_handled', 'failed')),
+  last_message_at TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mailbox_threads_workspace ON mailbox_threads(client_workspace_id);
+CREATE INDEX IF NOT EXISTS idx_mailbox_threads_agent ON mailbox_threads(agent_id);
+CREATE INDEX IF NOT EXISTS idx_mailbox_threads_status ON mailbox_threads(status);
+CREATE INDEX IF NOT EXISTS idx_mailbox_threads_customer_email ON mailbox_threads(customer_email);
+
+-- Support Mailbox Messages (Inbound and outbound email messages within threads)
+CREATE TABLE IF NOT EXISTS mailbox_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  thread_id UUID NOT NULL REFERENCES mailbox_threads(id) ON DELETE CASCADE,
+  message_id_header TEXT,
+  in_reply_to_header TEXT,
+  references_header TEXT,
+  direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+  sender_email TEXT NOT NULL,
+  sender_name TEXT,
+  recipient_email TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body_text TEXT NOT NULL,
+  body_html TEXT,
+  ai_generated BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mailbox_messages_thread ON mailbox_messages(thread_id);
+CREATE INDEX IF NOT EXISTS idx_mailbox_messages_header ON mailbox_messages(message_id_header);
+
+-- Link copilot drafts to mailbox threads for review before outbound email delivery
+ALTER TABLE copilot_drafts ADD COLUMN IF NOT EXISTS thread_id UUID REFERENCES mailbox_threads(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_copilot_drafts_thread ON copilot_drafts(thread_id);
+
 

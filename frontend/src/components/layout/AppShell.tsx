@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Plus, LogOut, LayoutDashboard,
-  FileText, Ticket, Loader, KeyRound, Check, BookOpen
+  FileText, Ticket, Mail, Loader, KeyRound, Check, BookOpen
 } from 'lucide-react';
 import { removeToken, getUser, apiRequest } from '../../services/api';
 import { useWorkspace } from '../../context/WorkspaceContext';
@@ -152,6 +152,13 @@ export default function AppShell({ children }: AppShellProps) {
                 >
                   <Ticket size={18} />
                   <span>Customer Tickets</span>
+                </NavLink>
+                <NavLink
+                  to={`/workspaces/${selectedWs.id}/mailbox`}
+                  className={navLinkClass}
+                >
+                  <Mail size={18} />
+                  <span>Support Mailbox</span>
                 </NavLink>
               </>
             )}
