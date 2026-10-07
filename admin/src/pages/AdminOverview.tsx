@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Users, Bot, MessageSquare, Calendar, Ticket,
   Plus, Search, Mail, ExternalLink,
-  Building2, ChevronRight, KeyRound, Copy, Check, RefreshCw
+  Building2, ChevronRight, KeyRound, Copy, Check, RefreshCw,
+  GitPullRequest
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
 import Button from '../components/ui/Button';
@@ -23,6 +24,9 @@ interface AdminStats {
     total_bookings: number;
     total_actions: number;
     failed_actions: number;
+    total_autofix_prs?: number;
+    open_autofix_prs?: number;
+    merged_autofix_prs?: number;
   };
   pipeline_breakdown: { onboarding_status: string; count: number }[];
   recent_activity: {
@@ -228,7 +232,7 @@ export default function AdminOverview() {
       </div>
 
       {/* KPI Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Clients</p>
@@ -246,12 +250,12 @@ export default function AdminOverview() {
 
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Conversations</p>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Conversations</p>
             <p className="text-3xl font-extrabold text-slate-900 mt-1">
               {stats?.kpis.total_conversations ?? 0}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              {stats?.kpis.total_messages ?? 0} messages handled
+              {stats?.kpis.total_messages ?? 0} messages
             </p>
           </div>
           <div className="h-12 w-12 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
@@ -261,12 +265,12 @@ export default function AdminOverview() {
 
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Bookings Generated</p>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Bookings</p>
             <p className="text-3xl font-extrabold text-emerald-600 mt-1">
               {stats?.kpis.total_bookings ?? 0}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              via Cal.com sales loop
+              via Cal.com loop
             </p>
           </div>
           <div className="h-12 w-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -276,16 +280,31 @@ export default function AdminOverview() {
 
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Support Escalations</p>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Escalations</p>
             <p className="text-3xl font-extrabold text-amber-600 mt-1">
               {stats?.kpis.total_tickets ?? 0}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              {stats?.kpis.open_tickets ?? 0} currently open
+              {stats?.kpis.open_tickets ?? 0} open tickets
             </p>
           </div>
           <div className="h-12 w-12 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
             <Ticket size={24} />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Auto-Fix PRs</p>
+            <p className="text-3xl font-extrabold text-purple-600 mt-1">
+              {stats?.kpis.total_autofix_prs ?? 0}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {stats?.kpis.merged_autofix_prs ?? 0} merged, {stats?.kpis.open_autofix_prs ?? 0} open
+            </p>
+          </div>
+          <div className="h-12 w-12 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+            <GitPullRequest size={24} />
           </div>
         </div>
       </div>

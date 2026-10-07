@@ -36,6 +36,14 @@ router.get('/stats', asyncHandler(async (_req: AuthenticatedRequest, res: Respon
     FROM action_logs
   `);
 
+  const autofixRes = await query(`
+    SELECT 
+      COUNT(*)::int as total_prs,
+      COUNT(CASE WHEN status = 'open' THEN 1 END)::int as open_prs,
+      COUNT(CASE WHEN status = 'merged' THEN 1 END)::int as merged_prs
+    FROM autofix_prs
+  `);
+
   // Status breakdown of workspaces
   const statusRes = await query(`
     SELECT onboarding_status, COUNT(*)::int as count
@@ -66,6 +74,9 @@ router.get('/stats', asyncHandler(async (_req: AuthenticatedRequest, res: Respon
       total_bookings: actionsRes.rows[0]?.total_bookings || 0,
       total_actions: actionsRes.rows[0]?.total_actions || 0,
       failed_actions: actionsRes.rows[0]?.failed_actions || 0,
+      total_autofix_prs: autofixRes.rows[0]?.total_prs || 0,
+      open_autofix_prs: autofixRes.rows[0]?.open_prs || 0,
+      merged_autofix_prs: autofixRes.rows[0]?.merged_prs || 0,
     },
     pipeline_breakdown: statusRes.rows,
     recent_activity: recentLogsRes.rows,

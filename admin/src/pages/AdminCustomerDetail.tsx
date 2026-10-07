@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Building2, Globe, Mail, Phone, ExternalLink,
   Bot, Settings, BarChart2, MessageSquare, Calendar,
-  Copy, Check, Search, AlertCircle, Save, ChevronRight, Play
+  Copy, Check, Search, AlertCircle, Save, ChevronRight, Play,
+  GitPullRequest
 } from 'lucide-react';
 import { apiRequest, API_HOST } from '../services/api';
 import Button from '../components/ui/Button';
@@ -139,6 +140,7 @@ export default function AdminCustomerDetail() {
   // Search filter in conversations
   const [convSearch, setConvSearch] = useState('');
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const [copiedMonitor, setCopiedMonitor] = useState(false);
   const [deployingAgent, setDeployingAgent] = useState(false);
   const [customHost, setCustomHost] = useState(() =>
     localStorage.getItem('fa_backend_host') ||
@@ -336,6 +338,18 @@ export default function AdminCustomerDetail() {
       navigator.clipboard.writeText(widgetScriptTag);
       setCopiedSnippet(true);
       setTimeout(() => setCopiedSnippet(false), 2000);
+    }
+  };
+
+  const monitorScriptTag = primaryAgent?.api_key
+    ? `<!-- 2. Load Forma Monitor SDK (Crash Telemetry & Auto-Fix PRs) -->\n<script\n  src="${activeHost}/forma-monitor.js"\n  data-agent-id="${primaryAgent.id}"\n  data-agent-key="${primaryAgent.api_key}">\n</script>`
+    : '';
+
+  const copyMonitorCode = () => {
+    if (primaryAgent?.api_key && monitorScriptTag) {
+      navigator.clipboard.writeText(monitorScriptTag);
+      setCopiedMonitor(true);
+      setTimeout(() => setCopiedMonitor(false), 2000);
     }
   };
 
@@ -715,6 +729,55 @@ export default function AdminCustomerDetail() {
               ) : (
                 <div className="py-4 text-xs text-slate-400 text-center">
                   No chatbot provisioned yet for this client workspace.
+                </div>
+              )}
+            </div>
+
+            {/* Forma Monitor SDK Box */}
+            <div className="bg-slate-900 text-slate-200 rounded-xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <GitPullRequest size={16} className="text-purple-400" />
+                  Forma Monitor &amp; Auto-Fix SDK
+                </h3>
+                {primaryAgent?.api_key && (
+                  <button
+                    onClick={copyMonitorCode}
+                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white flex items-center gap-1 transition-colors border border-slate-700"
+                  >
+                    {copiedMonitor ? (
+                      <>
+                        <Check size={12} className="text-emerald-400" /> Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} /> Copy Code
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {primaryAgent?.api_key ? (
+                <>
+                  <p className="text-xs text-slate-400 mb-2">
+                    Send to client's engineering team for Web or Electron desktop crash telemetry &amp; auto-fix PRs:
+                  </p>
+                  <pre className="bg-slate-950 p-3.5 rounded-lg text-xs font-mono text-purple-300 overflow-x-auto whitespace-pre-wrap break-all border border-slate-800 leading-relaxed">
+                    {monitorScriptTag}
+                  </pre>
+                  <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+                    <span className="text-purple-400 flex items-center gap-1">
+                      <Check size={12} /> Auto-Fix Software Factory active
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      forma-monitor.js
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="py-2 text-xs text-slate-400">
+                  Deploy client agent to generate Forma Monitor credentials.
                 </div>
               )}
             </div>
