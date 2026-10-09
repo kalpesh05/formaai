@@ -4,7 +4,7 @@ import {
   Users, Bot, MessageSquare, Calendar, Ticket,
   Plus, Search, Mail, ExternalLink,
   Building2, ChevronRight, KeyRound, Copy, Check, RefreshCw,
-  GitPullRequest
+  GitPullRequest, ClipboardList
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
 import Button from '../components/ui/Button';
@@ -27,6 +27,8 @@ interface AdminStats {
     total_autofix_prs?: number;
     open_autofix_prs?: number;
     merged_autofix_prs?: number;
+    total_forms?: number;
+    total_form_submissions?: number;
   };
   pipeline_breakdown: { onboarding_status: string; count: number }[];
   recent_activity: {
@@ -232,7 +234,7 @@ export default function AdminOverview() {
       </div>
 
       {/* KPI Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Clients</p>
@@ -290,6 +292,21 @@ export default function AdminOverview() {
           </div>
           <div className="h-12 w-12 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
             <Ticket size={24} />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Forms &amp; Leads</p>
+            <p className="text-3xl font-extrabold text-indigo-600 mt-1">
+              {stats?.kpis.total_forms ?? 0}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {stats?.kpis.total_form_submissions ?? 0} submissions
+            </p>
+          </div>
+          <div className="h-12 w-12 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <ClipboardList size={24} />
           </div>
         </div>
 

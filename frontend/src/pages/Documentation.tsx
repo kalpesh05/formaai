@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import {
   Sparkles, Code2, Bot,
   Copy, Check, Send, ShieldCheck,
-  Globe, Laptop, Smartphone, Terminal, HelpCircle, Mail
+  Globe, Laptop, Smartphone, Terminal, HelpCircle, Mail, ClipboardList
 } from 'lucide-react';
 import { useWorkspace } from '../context/WorkspaceContext';
 
 export default function Documentation() {
   const { selectedWs } = useWorkspace();
-  const [activeTab, setActiveTab] = useState<'wizard' | 'mailbox' | 'architecture' | 'personas' | 'api' | 'faq'>('wizard');
+  const [activeTab, setActiveTab] = useState<'wizard' | 'forms' | 'mailbox' | 'architecture' | 'personas' | 'api' | 'faq'>('wizard');
 
   // Wizard state
   const [platform, setPlatform] = useState<'web' | 'electron' | 'flutter'>('web');
@@ -180,6 +180,17 @@ void main() {
               }`}
             >
               Interactive Wizard
+            </button>
+            <button
+              onClick={() => setActiveTab('forms')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                activeTab === 'forms'
+                  ? 'bg-brand-500 text-white shadow-sm'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <ClipboardList size={13} />
+              Forms &amp; Data Guide
             </button>
             <button
               onClick={() => setActiveTab('mailbox')}
@@ -445,6 +456,124 @@ void main() {
                   <Send size={14} />
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: FORMS & DATA COLLECTION GUIDE */}
+        {activeTab === 'forms' && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 space-y-8">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand-600 mb-1">
+                <ClipboardList size={14} /> Forma Form Builder &amp; Data Suite
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">How to Create, Share, and Analyze Forms</h2>
+              <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
+                Forma AI includes an agency-grade form builder and lead collection engine. Build forms manually or generate them instantly with Gemini AI, present them in Classic or One-by-One step-through layouts, track respondent locations and timezones silently, and visualize answers with interactive charts and AI qualitative synthesis.
+              </p>
+            </div>
+
+            {/* 3 Core Pillars */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="p-5 rounded-xl border border-blue-200 bg-blue-50/50 space-y-2">
+                <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                  1
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">AI &amp; Visual Builder</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Design forms with 9 field types (Text, Paragraph, Email, Phone, Number, Dropdowns, Choice Cards, Rating 1-5★, Date). Type a natural language prompt to let Gemini AI generate complete questionnaires in seconds.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-2">
+                <div className="h-8 w-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
+                  2
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">Silent Telemetry &amp; Geolocation</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Every submission is automatically tagged with the respondent's detected country, city, browser timezone (<code className="text-slate-800 bg-white px-1 py-0.5 rounded text-[10px]">Intl.DateTimeFormat</code>), and device type without intrusive permission prompts.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-xl border border-purple-200 bg-purple-50/50 space-y-2">
+                <div className="h-8 w-8 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs">
+                  3
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">Airtable Grid &amp; Visual Charts</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Manage incoming responses in a clean Notion/Airtable data table with search, status workflows, and CSV export. Toggle to the Analytics tab for trend lines, choice distributions, and Gemini AI sentiment summaries.
+                </p>
+              </div>
+            </div>
+
+            {/* Step-by-Step Integration Guide */}
+            <div className="space-y-4">
+              <h3 className="text-base font-bold text-slate-900">How to Embed on Your Website</h3>
+
+              <div className="space-y-4 text-xs">
+                {/* Method A: Hosted Link */}
+                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <span className="h-5 w-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px]">A</span>
+                    Direct Shareable Link (No code required)
+                  </div>
+                  <p className="text-slate-600 pl-7">
+                    Every form generates a clean, mobile-responsive standalone link hosted directly by your Forma AI instance:
+                  </p>
+                  <div className="pl-7">
+                    <code className="block bg-slate-900 text-emerald-300 p-2.5 rounded font-mono text-[11px]">
+                      {currentHost}/f/YOUR_FORM_ID
+                    </code>
+                  </div>
+                </div>
+
+                {/* Method B: HTML Iframe Embed */}
+                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <span className="h-5 w-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px]">B</span>
+                    Responsive HTML Iframe (Webflow, WordPress, Shopify, Wix)
+                  </div>
+                  <p className="text-slate-600 pl-7">
+                    Copy and paste this standard embed snippet directly into any page HTML or CMS embed block:
+                  </p>
+                  <div className="pl-7">
+                    <pre className="bg-slate-900 text-slate-200 p-3 rounded font-mono text-[11px] overflow-x-auto">
+{`<iframe
+  src="${currentHost}/f/YOUR_FORM_ID"
+  width="100%"
+  height="650"
+  frameborder="0"
+  style="border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);"
+></iframe>`}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Presentation Modes Showcase */}
+            <div className="bg-slate-900 text-white rounded-xl p-6 space-y-3">
+              <h4 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                <Sparkles className="text-amber-400" size={16} />
+                Dual Presentation Layouts
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Choose the best experience for your audience in <strong>Form Settings</strong>:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3 space-y-1">
+                  <span className="font-bold text-xs text-slate-200">📄 Classic Scroll Mode:</span>
+                  <p className="text-[11px] text-slate-400">
+                    Traditional vertical layout. Best for quick contact forms, checkout intake, and short inquiries.
+                  </p>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3 space-y-1">
+                  <span className="font-bold text-xs text-slate-200">✨ One-by-One (Typeform-Style):</span>
+                  <p className="text-[11px] text-slate-400">
+                    Interactive single-question view with progress bar, smooth transitions, and keyboard enter navigation. Ideal for surveys, onboarding questionnaires, and lead funnels.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -7,6 +7,9 @@ import AgentConfig from './pages/AgentConfig';
 import WorkspaceLogs from './pages/WorkspaceLogs';
 import WorkspaceTickets from './pages/WorkspaceTickets';
 import WorkspaceMailbox from './pages/WorkspaceMailbox';
+import WorkspaceForms from './pages/WorkspaceForms';
+import FormDetail from './pages/FormDetail';
+import PublicFormView from './pages/PublicFormView';
 import Documentation from './pages/Documentation';
 import AppShell from './components/layout/AppShell';
 import { WorkspaceProvider } from './context/WorkspaceContext';
@@ -45,6 +48,7 @@ function App() {
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/f/:formId" element={<PublicFormView />} />
 
         {/* Protected Client Workspace routes */}
         <Route
@@ -61,6 +65,24 @@ function App() {
           element={
             <ShellRoute>
               <AgentConfig />
+            </ShellRoute>
+          }
+        />
+
+        <Route
+          path="/workspaces/:wsId/forms"
+          element={
+            <ShellRoute>
+              <WorkspaceForms />
+            </ShellRoute>
+          }
+        />
+
+        <Route
+          path="/workspaces/:wsId/forms/:formId"
+          element={
+            <ShellRoute>
+              <FormDetail />
             </ShellRoute>
           }
         />

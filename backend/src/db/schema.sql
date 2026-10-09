@@ -253,4 +253,34 @@ CREATE INDEX IF NOT EXISTS idx_mailbox_messages_header ON mailbox_messages(messa
 ALTER TABLE copilot_drafts ADD COLUMN IF NOT EXISTS thread_id UUID REFERENCES mailbox_threads(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS idx_copilot_drafts_thread ON copilot_drafts(thread_id);
 
+-- Forma AI Forms and Dynamic Data Collection Suite
+CREATE TABLE IF NOT EXISTS forms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_workspace_id UUID NOT NULL REFERENCES client_workspaces(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  display_mode TEXT NOT NULL DEFAULT 'classic' CHECK (display_mode IN ('classic', 'one_by_one')),
+  fields JSONB NOT NULL DEFAULT '[]',
+  settings JSONB NOT NULL DEFAULT '{}',
+  is_published BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_forms_workspace ON forms(client_workspace_id);
+CREATE INDEX IF NOT EXISTS idx_forms_published ON forms(is_published);
+
+CREATE TABLE IF NOT EXISTS form_submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  form_id UUID NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
+  client_workspace_id UUID NOT NULL REFERENCES client_workspaces(id) ON DELETE CASCADE,
+  answers JSONB NOT NULL DEFAULT '{}',
+  metadata JSONB NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'reviewed', 'archived')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_form_submissions_form ON form_submissions(form_id);
+CREATE INDEX IF NOT EXISTS idx_form_submissions_workspace ON form_submissions(client_workspace_id);
+CREATE INDEX IF NOT EXISTS idx_form_submissions_created ON form_submissions(created_at);
+
+
 

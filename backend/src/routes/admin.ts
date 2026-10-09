@@ -44,6 +44,12 @@ router.get('/stats', asyncHandler(async (_req: AuthenticatedRequest, res: Respon
     FROM autofix_prs
   `);
 
+  const formsRes = await query(`
+    SELECT 
+      (SELECT COUNT(*)::int FROM forms) as total_forms,
+      (SELECT COUNT(*)::int FROM form_submissions) as total_submissions
+  `);
+
   // Status breakdown of workspaces
   const statusRes = await query(`
     SELECT onboarding_status, COUNT(*)::int as count
@@ -77,6 +83,8 @@ router.get('/stats', asyncHandler(async (_req: AuthenticatedRequest, res: Respon
       total_autofix_prs: autofixRes.rows[0]?.total_prs || 0,
       open_autofix_prs: autofixRes.rows[0]?.open_prs || 0,
       merged_autofix_prs: autofixRes.rows[0]?.merged_prs || 0,
+      total_forms: formsRes.rows[0]?.total_forms || 0,
+      total_form_submissions: formsRes.rows[0]?.total_submissions || 0,
     },
     pipeline_breakdown: statusRes.rows,
     recent_activity: recentLogsRes.rows,

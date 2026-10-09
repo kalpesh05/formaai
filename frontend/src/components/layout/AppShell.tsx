@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Plus, LogOut, LayoutDashboard,
-  FileText, Ticket, Mail, Loader, KeyRound, Check, BookOpen
+  FileText, Ticket, Mail, Loader, KeyRound, Check, BookOpen, ClipboardList
 } from 'lucide-react';
 import { removeToken, getUser, apiRequest } from '../../services/api';
 import { useWorkspace } from '../../context/WorkspaceContext';
@@ -140,6 +140,13 @@ export default function AppShell({ children }: AppShellProps) {
             {selectedWs && (
               <>
                 <NavLink
+                  to={`/workspaces/${selectedWs.id}/forms`}
+                  className={navLinkClass}
+                >
+                  <ClipboardList size={18} />
+                  <span>Forms &amp; Data</span>
+                </NavLink>
+                <NavLink
                   to={`/workspaces/${selectedWs.id}/logs`}
                   className={navLinkClass}
                 >
@@ -162,6 +169,7 @@ export default function AppShell({ children }: AppShellProps) {
                 </NavLink>
               </>
             )}
+
 
             <NavLink to="/docs" className={navLinkClass}>
               <BookOpen size={18} />

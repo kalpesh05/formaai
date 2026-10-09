@@ -17,6 +17,12 @@ Forma AI is a production-ready, white-label, multi-tenant AI Chatbot SaaS platfo
   * **Autonomous:** Instant AI responses sent via SMTP when confidence exceeds threshold.
   * **Copilot:** AI drafts grounded email answers for 1-click human review and sign-off.
   * **Manual:** Shared team inbox for direct collaborative human response.
+* **Forma Form Builder & Data Collection Suite:** Full-featured form creation and lead intake platform.
+  * **Dual Presentation Layouts:** Toggle between **Classic Vertical Scroll** and **One-by-One (Typeform-style)** interactive step-through experiences with keyboard navigation.
+  * **Visitor Telemetry & Auto-Geolocation:** Automatically tags every submission with respondent IP, detected country, city, and exact client timezone (`Intl.DateTimeFormat`).
+  * **Notion/Airtable-Style Data Grid:** Filterable, searchable submissions table with inspector modals and 1-click CSV export.
+  * **Visual Analytics & AI Qualitative Insights:** Interactive time-series trends, choice distribution charts, rating scorecards, and 1-click Gemini synthesis of open-ended customer feedback.
+  * **White-Label Branding & Embed:** Custom brand colors, logo banner, iframe embed snippets, and subtle `⚡ Powered by Forma AI` micro-badges.
 * **Activity Traces & Audits:** Exposes database logging tables showing execution traces (`action_logs`) and customer support tickets.
 * **Interactive Sandbox Playground:** Test prompt guidelines, check RAG vector matches, and verify action loop executions in real-time inside the dashboard.
 
