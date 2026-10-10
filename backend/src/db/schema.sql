@@ -37,7 +37,13 @@ ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS contact_phone TEXT;
 ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS website_url TEXT;
 ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS industry TEXT;
 ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS onboarding_status TEXT NOT NULL DEFAULT 'requested';
-ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS plan_tier TEXT NOT NULL DEFAULT 'growth';
+ALTER TABLE client_workspaces DROP CONSTRAINT IF EXISTS client_workspaces_plan_tier_check;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS plan_tier TEXT NOT NULL DEFAULT 'trial';
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS billing_interval TEXT NOT NULL DEFAULT 'monthly';
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ DEFAULT (now() + INTERVAL '14 days');
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS subscription_status TEXT NOT NULL DEFAULT 'trialing';
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS monthly_message_count INT NOT NULL DEFAULT 0;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS billing_cycle_start TIMESTAMPTZ DEFAULT now();
 ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS admin_notes TEXT;
 ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS feature_flags JSONB NOT NULL DEFAULT '{"forms": false, "mailbox": false, "tickets": false, "logs": false}';
 
@@ -282,6 +288,21 @@ CREATE TABLE IF NOT EXISTS form_submissions (
 CREATE INDEX IF NOT EXISTS idx_form_submissions_form ON form_submissions(form_id);
 CREATE INDEX IF NOT EXISTS idx_form_submissions_workspace ON form_submissions(client_workspace_id);
 CREATE INDEX IF NOT EXISTS idx_form_submissions_created ON form_submissions(created_at);
+CREATE TABLE IF NOT EXISTS platform_settings (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
-
-
+-- Seed default global module lifecycle if not present
+INSERT INTO platform_settings (key, value)
+VALUES (
+  'module_lifecycle',
+  '{
+    "forms": { "status": "beta", "min_plan": "growth", "name": "Forma AI Form Builder", "description": "Conversational & classic lead capture forms" },
+    "mailbox": { "status": "beta", "min_plan": "business", "name": "Support Mailbox & Copilot", "description": "Email ticketing & AI auto-responder" },
+    "tickets": { "status": "beta", "min_plan": "business", "name": "Customer Ticket Helpdesk", "description": "Multi-channel support escalation" },
+    "logs": { "status": "internal", "min_plan": "enterprise", "name": "Execution Telemetry & Traces", "description": "Deep LLM request logs and self-healing" }
+  }'::jsonb
+)
+ON CONFLICT (key) DO NOTHING;

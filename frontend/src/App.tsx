@@ -11,6 +11,7 @@ import WorkspaceForms from './pages/WorkspaceForms';
 import FormDetail from './pages/FormDetail';
 import PublicFormView from './pages/PublicFormView';
 import Documentation from './pages/Documentation';
+import Pricing from './pages/Pricing';
 import AppShell from './components/layout/AppShell';
 import { WorkspaceProvider } from './context/WorkspaceContext';
 import { getToken } from './services/api';
@@ -119,6 +120,15 @@ function App() {
           element={
             <ShellRoute>
               <Documentation />
+            </ShellRoute>
+          }
+        />
+
+        <Route
+          path="/pricing"
+          element={
+            <ShellRoute>
+              <Pricing />
             </ShellRoute>
           }
         />

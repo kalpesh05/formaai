@@ -49,6 +49,19 @@ router.post('/workspaces/:workspaceId/agents', authenticateAgency, asyncHandler(
   // Verify workspace ownership
   await assertWorkspaceBelongsToAgency(workspaceId, agencyId);
 
+  // Enforce plan limits & trial expiration
+  const { checkAgentCreationAllowed } = await import('../utils/planLimits');
+  const check = await checkAgentCreationAllowed(workspaceId);
+  if (!check.allowed) {
+    return res.status(403).json({
+      error: check.error,
+      code: check.code,
+      current: check.current,
+      limit: check.limit,
+      plan_tier: check.plan_tier,
+    });
+  }
+
   const preset = TEMPLATES[template_type as keyof typeof TEMPLATES];
 
   // Checkout a dedicated client connection from the pool for transactional queries

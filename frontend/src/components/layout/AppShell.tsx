@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Plus, LogOut,
-  FileText, Ticket, Mail, Loader, KeyRound, Check, BookOpen, ClipboardList, Bot
+  FileText, Ticket, Mail, Loader, KeyRound, Check, BookOpen, ClipboardList, Bot, CreditCard
 } from 'lucide-react';
 import { removeToken, getUser, apiRequest } from '../../services/api';
 import { useWorkspace } from '../../context/WorkspaceContext';
+import PlanBanner from './PlanBanner';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Alert from '../ui/Alert';
@@ -146,62 +147,86 @@ export default function AppShell({ children }: AppShellProps) {
                   <BookOpen size={18} />
                   <span>Docs &amp; Widget Setup</span>
                 </NavLink>
+
+                <NavLink to="/pricing" className={navLinkClass}>
+                  <CreditCard size={18} />
+                  <div className="flex items-center justify-between w-full">
+                    <span>Plans &amp; Pricing</span>
+                    {selectedWs?.plan_tier && (
+                      <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-mono font-bold">
+                        {selectedWs.plan_tier}
+                      </span>
+                    )}
+                  </div>
+                </NavLink>
               </div>
             </div>
 
-            {/* Plan-Gated Add-On Modules (Hidden unless enabled via Admin Panel plans & pricing) */}
-            {selectedWs && (selectedWs.feature_flags?.forms || selectedWs.feature_flags?.mailbox || selectedWs.feature_flags?.tickets || selectedWs.feature_flags?.logs) && (
-              <div className="pt-2 border-t border-slate-800">
-                <div className="flex items-center justify-between px-3 mb-2">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    Plan Add-on Modules
-                  </p>
-                  <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-brand-950 text-brand-400 border border-brand-800 font-mono">
-                    {selectedWs.plan_tier || 'active'}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  {selectedWs.feature_flags?.forms && (
-                    <NavLink
-                      to={`/workspaces/${selectedWs.id}/forms`}
-                      className={navLinkClass}
-                    >
-                      <ClipboardList size={17} />
-                      <span>Forms &amp; Lead Data</span>
-                    </NavLink>
-                  )}
+            {/* Plan-Gated Add-On Modules (Hidden unless enabled via Admin Panel or plan tier) */}
+            {selectedWs && (
+              (() => {
+                const canForms = selectedWs.usage?.modules_access?.forms ?? selectedWs.feature_flags?.forms;
+                const canMailbox = selectedWs.usage?.modules_access?.mailbox ?? selectedWs.feature_flags?.mailbox;
+                const canTickets = selectedWs.usage?.modules_access?.tickets ?? selectedWs.feature_flags?.tickets;
+                const canLogs = selectedWs.usage?.modules_access?.logs ?? selectedWs.feature_flags?.logs;
+                const hasAny = Boolean(canForms || canMailbox || canTickets || canLogs);
 
-                  {selectedWs.feature_flags?.mailbox && (
-                    <NavLink
-                      to={`/workspaces/${selectedWs.id}/mailbox`}
-                      className={navLinkClass}
-                    >
-                      <Mail size={17} />
-                      <span>Support Mailbox</span>
-                    </NavLink>
-                  )}
+                if (!hasAny) return null;
 
-                  {selectedWs.feature_flags?.tickets && (
-                    <NavLink
-                      to={`/workspaces/${selectedWs.id}/tickets`}
-                      className={navLinkClass}
-                    >
-                      <Ticket size={17} />
-                      <span>Customer Tickets</span>
-                    </NavLink>
-                  )}
+                return (
+                  <div className="pt-2 border-t border-slate-800">
+                    <div className="flex items-center justify-between px-3 mb-2">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Plan Add-on Modules
+                      </p>
+                      <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-brand-950 text-brand-400 border border-brand-800 font-mono font-bold">
+                        {selectedWs.plan_tier || 'active'}
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      {canForms && (
+                        <NavLink
+                          to={`/workspaces/${selectedWs.id}/forms`}
+                          className={navLinkClass}
+                        >
+                          <ClipboardList size={17} />
+                          <span>Forms &amp; Lead Data</span>
+                        </NavLink>
+                      )}
 
-                  {selectedWs.feature_flags?.logs && (
-                    <NavLink
-                      to={`/workspaces/${selectedWs.id}/logs`}
-                      className={navLinkClass}
-                    >
-                      <FileText size={17} />
-                      <span>Execution Logs</span>
-                    </NavLink>
-                  )}
-                </div>
-              </div>
+                      {canMailbox && (
+                        <NavLink
+                          to={`/workspaces/${selectedWs.id}/mailbox`}
+                          className={navLinkClass}
+                        >
+                          <Mail size={17} />
+                          <span>Support Mailbox</span>
+                        </NavLink>
+                      )}
+
+                      {canTickets && (
+                        <NavLink
+                          to={`/workspaces/${selectedWs.id}/tickets`}
+                          className={navLinkClass}
+                        >
+                          <Ticket size={17} />
+                          <span>Customer Tickets</span>
+                        </NavLink>
+                      )}
+
+                      {canLogs && (
+                        <NavLink
+                          to={`/workspaces/${selectedWs.id}/logs`}
+                          className={navLinkClass}
+                        >
+                          <FileText size={17} />
+                          <span>Execution Logs</span>
+                        </NavLink>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
             )}
 
             {!selectedWs && !loadingWs && (
@@ -246,6 +271,7 @@ export default function AppShell({ children }: AppShellProps) {
 
       {/* ── Main Content ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        <PlanBanner />
         {children}
       </div>
 

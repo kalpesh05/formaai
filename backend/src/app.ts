@@ -12,6 +12,7 @@ import autofixRouter from './routes/autofix';
 import adminRouter from './routes/admin';
 import mailboxRouter from './routes/mailbox';
 import formsRouter from './routes/forms';
+import plansRouter from './routes/plans';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Routes (Targeting Base URL /api/v1)
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/admin', adminRouter);
+app.use('/api/v1/plans', plansRouter);
 app.use('/api/v1/workspaces', workspacesRouter);
 app.use('/api/v1', agentsRouter);
 app.use('/api/v1', ingestionRouter);

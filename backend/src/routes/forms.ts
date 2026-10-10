@@ -231,6 +231,19 @@ router.post(
     const { wsId } = req.params;
     await assertWorkspaceBelongsToAgency(wsId, req.agencyId!);
 
+    // Enforce plan limits and beta module access
+    const { checkFormCreationAllowed } = await import('../utils/planLimits');
+    const check = await checkFormCreationAllowed(wsId);
+    if (!check.allowed) {
+      return res.status(403).json({
+        error: check.error,
+        code: check.code,
+        current: check.current,
+        limit: check.limit,
+        plan_tier: check.plan_tier,
+      });
+    }
+
     const {
       title,
       description = '',

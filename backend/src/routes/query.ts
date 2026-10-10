@@ -95,6 +95,17 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
     await assertAgentBelongsToAgency(agentId, agencyId);
   }
 
+  // 1b. Enforce plan message quotas and trial expiration
+  const { checkChatQueryAllowed } = await import('../utils/planLimits');
+  const queryAllowance = await checkChatQueryAllowed(agentId);
+  if (!queryAllowance.allowed) {
+    return res.status(403).json({
+      error: queryAllowance.error,
+      code: queryAllowance.code,
+      reply: 'This AI Assistant is currently paused because the workspace has reached its monthly message quota or its trial has ended.',
+    });
+  }
+
   // 2. Fetch agent configuration details
   const agentResult = await query(
     `SELECT id, config, template_type, status, llm_model, llm_provider FROM agents WHERE id = $1`,
@@ -367,6 +378,14 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
       [conversationId, storedAssistantReply]
     );
     await client.query('COMMIT');
+
+    // Increment workspace monthly message quota counter asynchronously
+    if (queryAllowance.workspaceId) {
+      query(
+        'UPDATE client_workspaces SET monthly_message_count = COALESCE(monthly_message_count, 0) + 1 WHERE id = $1',
+        [queryAllowance.workspaceId]
+      ).catch((err: any) => console.warn('Failed to increment message quota count:', err));
+    }
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Failed to log message session history:', err);

@@ -4,7 +4,7 @@ import {
   Users, Bot, MessageSquare, Calendar, Ticket,
   Plus, Search, Mail, ExternalLink,
   Building2, ChevronRight, KeyRound, Copy, Check, RefreshCw,
-  GitPullRequest, ClipboardList
+  GitPullRequest, ClipboardList, FileText, Rocket, ShieldCheck
 } from 'lucide-react';
 import { apiRequest } from '../services/api';
 import Button from '../components/ui/Button';
@@ -97,6 +97,16 @@ export default function AdminOverview() {
   } | null>(null);
   const [copiedWelcome, setCopiedWelcome] = useState(false);
 
+  // Global Feature Release Manager state
+  const [modules, setModules] = useState<Record<string, {
+    status: 'internal' | 'beta' | 'live';
+    min_plan: string;
+    name: string;
+    description: string;
+  }>>({});
+  const [updatingModule, setUpdatingModule] = useState<string | null>(null);
+  const [moduleSuccessMsg, setModuleSuccessMsg] = useState('');
+
   const generateRandomPassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
     let pwd = '';
@@ -113,16 +123,41 @@ export default function AdminOverview() {
   const fetchAdminData = async () => {
     setLoading(true);
     try {
-      const [statsData, customersData] = await Promise.all([
+      const [statsData, customersData, modulesData] = await Promise.all([
         apiRequest('/admin/stats', 'GET'),
         apiRequest(`/admin/customers?status=${statusFilter}${search ? `&search=${encodeURIComponent(search)}` : ''}`, 'GET'),
+        apiRequest('/admin/platform/modules', 'GET').catch(() => ({ modules: {} })),
       ]);
       setStats(statsData);
       setCustomers(customersData);
+      if (modulesData?.modules) {
+        setModules(modulesData.modules);
+      }
     } catch (err: any) {
       console.error('Failed to load admin data:', err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateModule = async (moduleKey: string, newStatus: 'internal' | 'beta' | 'live', minPlan?: string) => {
+    setUpdatingModule(moduleKey);
+    setModuleSuccessMsg('');
+    try {
+      const res = await apiRequest('/admin/platform/modules', 'PATCH', {
+        module_key: moduleKey,
+        status: newStatus,
+        min_plan: minPlan || modules[moduleKey]?.min_plan,
+      });
+      if (res?.modules) {
+        setModules(res.modules);
+        setModuleSuccessMsg(`Successfully updated "${modules[moduleKey]?.name || moduleKey}" to ${newStatus.toUpperCase()}! This reflects live on the pricing page and across workspaces.`);
+        setTimeout(() => setModuleSuccessMsg(''), 4500);
+      }
+    } catch (err: any) {
+      alert(`Failed to update module lifecycle: ${err.message}`);
+    } finally {
+      setUpdatingModule(null);
     }
   };
 
@@ -323,6 +358,111 @@ export default function AdminOverview() {
           <div className="h-12 w-12 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
             <GitPullRequest size={24} />
           </div>
+        </div>
+      </div>
+
+      {/* Global Feature Release Manager (Internal -> Beta -> Live for All) */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Rocket size={18} className="text-brand-600" />
+              <h2 className="text-base font-bold text-slate-900">Global Feature Release Lifecycle</h2>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Switch add-ons from <strong>Internal</strong> to <strong>Beta (Invite-Only)</strong> or <strong>Live for All</strong>. When turned "Live", the feature unlocks for all qualifying plans and updates the public Pricing page automatically.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <ShieldCheck size={13} /> Live System Gating Active
+          </span>
+        </div>
+
+        {moduleSuccessMsg && (
+          <div className="mb-4">
+            <Alert type="success">{moduleSuccessMsg}</Alert>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { key: 'forms', icon: ClipboardList, color: 'indigo' },
+            { key: 'mailbox', icon: Mail, color: 'purple' },
+            { key: 'tickets', icon: Ticket, color: 'amber' },
+            { key: 'logs', icon: FileText, color: 'slate' },
+          ].map(({ key, icon: Icon, color }) => {
+            const mod = modules[key] || {
+              name: key.toUpperCase(),
+              status: 'internal',
+              min_plan: 'growth',
+              description: '',
+            };
+            const isUpdating = updatingModule === key;
+
+            return (
+              <div
+                key={key}
+                className="rounded-lg border border-slate-200 p-4 bg-slate-50/60 hover:bg-slate-50 transition-colors flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg bg-${color}-100 text-${color}-600`}>
+                        <Icon size={16} />
+                      </div>
+                      <span className="font-bold text-xs text-slate-900">{mod.name}</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 mb-3 min-h-[30px] line-clamp-2">
+                    {mod.description || `Platform add-on module (${key})`}
+                  </p>
+
+                  <div className="mb-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Release Stage:
+                    </label>
+                    <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-lg border border-slate-200">
+                      {(['internal', 'beta', 'live'] as const).map((st) => (
+                        <button
+                          key={st}
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() => handleUpdateModule(key, st)}
+                          className={`py-1 text-[10px] font-bold rounded capitalize transition-all ${
+                            mod.status === st
+                              ? st === 'live'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : st === 'beta'
+                                ? 'bg-amber-500 text-white shadow-xs'
+                                : 'bg-slate-700 text-white shadow-xs'
+                              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                          }`}
+                        >
+                          {st === 'live' ? '🚀 Live' : st === 'beta' ? '🧪 Beta' : '🔒 Internal'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400 font-medium">When Live:</span>
+                  <select
+                    value={mod.min_plan || 'growth'}
+                    disabled={isUpdating}
+                    onChange={(e) => handleUpdateModule(key, mod.status, e.target.value)}
+                    className="text-[11px] font-semibold bg-white border border-slate-300 rounded px-1.5 py-0.5 focus:ring-1 focus:ring-brand-500"
+                  >
+                    <option value="starter">Starter+</option>
+                    <option value="growth">Growth+</option>
+                    <option value="business">Business+</option>
+                    <option value="enterprise">Enterprise</option>
+                  </select>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

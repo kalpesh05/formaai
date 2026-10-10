@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { AuthenticatedRequest, authenticateAgency, assertWorkspaceBelongsToAgency } from '../middleware/auth';
 import { query } from '../config/db';
 import { resolveTicketWithAgent } from '../services/ticketResolver';
+import { getWorkspaceUsage } from '../utils/planLimits';
 
 const router = Router();
 
@@ -20,6 +21,8 @@ router.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =>
   const result = await query(
     `SELECT cw.id, cw.client_name, cw.contact_name, cw.contact_email, cw.contact_phone,
             cw.website_url, cw.industry, cw.onboarding_status, cw.plan_tier, cw.admin_notes,
+            cw.billing_interval, cw.trial_ends_at, cw.subscription_status,
+            COALESCE(cw.monthly_message_count, 0)::int as monthly_message_count,
             COALESCE(cw.feature_flags, '{"forms": false, "mailbox": false, "tickets": false, "logs": false}'::jsonb) as feature_flags,
             cw.created_at, 
             COALESCE(COUNT(a.id), 0)::int as agent_count
@@ -30,7 +33,15 @@ router.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =>
      ORDER BY cw.created_at DESC`,
     [agencyId]
   );
-  return res.json(result.rows);
+
+  const workspacesWithUsage = await Promise.all(
+    result.rows.map(async (row) => {
+      const usage = await getWorkspaceUsage(row.id);
+      return { ...row, usage };
+    })
+  );
+
+  return res.json(workspacesWithUsage);
 }));
 
 // POST /api/v1/workspaces - Create a new client workspace under the authenticated agency
@@ -43,7 +54,8 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
     website_url,
     industry,
     onboarding_status = 'requested',
-    plan_tier = 'growth',
+    plan_tier = 'trial',
+    billing_interval = 'monthly',
     admin_notes,
   } = req.body;
 
@@ -55,10 +67,13 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
   const result = await query(
     `INSERT INTO client_workspaces (
        agency_id, client_name, contact_name, contact_email, contact_phone,
-       website_url, industry, onboarding_status, plan_tier, admin_notes
+       website_url, industry, onboarding_status, plan_tier, billing_interval,
+       subscription_status, trial_ends_at, admin_notes
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     RETURNING id, client_name, contact_name, contact_email, contact_phone, website_url, industry, onboarding_status, plan_tier, admin_notes, created_at`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'trialing', now() + INTERVAL '14 days', $11)
+     RETURNING id, client_name, contact_name, contact_email, contact_phone, website_url,
+               industry, onboarding_status, plan_tier, billing_interval, subscription_status,
+               trial_ends_at, admin_notes, created_at`,
     [
       agencyId,
       client_name,
@@ -69,11 +84,15 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
       industry || null,
       onboarding_status,
       plan_tier,
+      billing_interval,
       admin_notes || null,
     ]
   );
 
-  return res.status(201).json(result.rows[0]);
+  const newWorkspace = result.rows[0];
+  const usage = await getWorkspaceUsage(newWorkspace.id);
+
+  return res.status(201).json({ ...newWorkspace, usage });
 }));
 
 // GET /api/v1/workspaces/:id - Get detailed status of a specific workspace
@@ -87,6 +106,8 @@ router.get('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response)
   const result = await query(
     `SELECT cw.id, cw.client_name, cw.contact_name, cw.contact_email, cw.contact_phone,
             cw.website_url, cw.industry, cw.onboarding_status, cw.plan_tier, cw.admin_notes,
+            cw.billing_interval, cw.trial_ends_at, cw.subscription_status,
+            COALESCE(cw.monthly_message_count, 0)::int as monthly_message_count,
             COALESCE(cw.feature_flags, '{"forms": false, "mailbox": false, "tickets": false, "logs": false}'::jsonb) as feature_flags,
             cw.created_at,
             COALESCE(COUNT(a.id), 0)::int as agent_count
@@ -97,7 +118,12 @@ router.get('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response)
     [workspaceId]
   );
 
-  return res.json(result.rows[0]);
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: 'Workspace not found' });
+  }
+
+  const usage = await getWorkspaceUsage(workspaceId);
+  return res.json({ ...result.rows[0], usage });
 }));
 
 // PATCH /api/v1/workspaces/:id - Update client workspace CRM details

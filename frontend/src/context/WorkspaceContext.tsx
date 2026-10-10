@@ -2,11 +2,49 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { apiRequest, removeToken } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
+export interface WorkspaceUsage {
+  workspace_id: string;
+  plan_tier: string;
+  plan_name: string;
+  billing_interval: string;
+  subscription_status: string;
+  trial_ends_at: string | null;
+  trial_days_remaining: number;
+  is_trial_expired: boolean;
+  agents: {
+    current: number;
+    limit: number;
+    can_create: boolean;
+  };
+  messages: {
+    current: number;
+    limit: number;
+    percentage: number;
+    is_quota_exceeded: boolean;
+  };
+  forms: {
+    current: number;
+    limit: number;
+    can_create: boolean;
+  };
+  modules_access: {
+    forms: boolean;
+    mailbox: boolean;
+    tickets: boolean;
+    logs: boolean;
+    [key: string]: boolean;
+  };
+}
+
 export interface Workspace {
   id: string;
   client_name: string;
   created_at: string;
   plan_tier?: string;
+  billing_interval?: string;
+  subscription_status?: string;
+  trial_ends_at?: string | null;
+  monthly_message_count?: number;
   feature_flags?: {
     forms?: boolean;
     mailbox?: boolean;
@@ -14,6 +52,7 @@ export interface Workspace {
     logs?: boolean;
     [key: string]: boolean | undefined;
   };
+  usage?: WorkspaceUsage;
 }
 
 interface WorkspaceContextValue {

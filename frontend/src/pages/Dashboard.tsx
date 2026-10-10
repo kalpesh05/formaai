@@ -10,6 +10,7 @@ import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import Alert from '../components/ui/Alert';
+import UpgradeModal from '../components/ui/UpgradeModal';
 
 export type TemplateType = 'support' | 'sales' | 'hr' | 'backend_dev' | 'frontend_dev' | 'qa_tester' | 'router';
 
@@ -38,8 +39,29 @@ export default function Dashboard() {
   const [newAgentName, setNewAgentName] = useState('');
   const [newAgentTemplate, setNewAgentTemplate] = useState<TemplateType>('backend_dev');
 
+  // Upgrade Modal state
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<'agent_limit' | 'trial_expired'>('agent_limit');
+  const [upgradeMessage, setUpgradeMessage] = useState('');
+
   const [actionError, setActionError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+
+  const handleOpenCreateAgent = () => {
+    if (selectedWs?.usage?.is_trial_expired) {
+      setUpgradeReason('trial_expired');
+      setUpgradeMessage('Your 14-day free trial has expired. Upgrade your plan to create and deploy new chatbot agents.');
+      setShowUpgradeModal(true);
+      return;
+    }
+    if (selectedWs?.usage?.agents && !selectedWs.usage.agents.can_create) {
+      setUpgradeReason('agent_limit');
+      setUpgradeMessage(`You have reached the ${selectedWs.usage.agents.limit}-Agent limit on your ${selectedWs.usage.plan_name} plan. Upgrade to Growth or Business to deploy additional agents.`);
+      setShowUpgradeModal(true);
+      return;
+    }
+    setShowAgentModal(true);
+  };
 
   // Open workspace modal when navigated here via sidebar "+" button
   useEffect(() => {
@@ -104,7 +126,19 @@ export default function Dashboard() {
       setShowAgentModal(false);
       navigate(`/workspaces/${selectedWs.id}/agents/${agent.id}`);
     } catch (err: any) {
-      setActionError(err.message || 'Failed to create agent');
+      if (err.message?.includes('AGENT_LIMIT_REACHED') || err.message?.includes('limit')) {
+        setShowAgentModal(false);
+        setUpgradeReason('agent_limit');
+        setUpgradeMessage(err.message);
+        setShowUpgradeModal(true);
+      } else if (err.message?.includes('TRIAL_EXPIRED')) {
+        setShowAgentModal(false);
+        setUpgradeReason('trial_expired');
+        setUpgradeMessage(err.message);
+        setShowUpgradeModal(true);
+      } else {
+        setActionError(err.message || 'Failed to create agent');
+      }
     } finally {
       setActionLoading(false);
     }
@@ -125,7 +159,7 @@ export default function Dashboard() {
         </div>
         {selectedWs && (
           <Button
-            onClick={() => setShowAgentModal(true)}
+            onClick={handleOpenCreateAgent}
             icon={<Plus size={16} />}
             variant="primary"
             size="md"
@@ -277,7 +311,7 @@ export default function Dashboard() {
                         description="Click 'Create AI Agent' to deploy your first client assistant template."
                         action={
                           <Button
-                            onClick={() => setShowAgentModal(true)}
+                            onClick={handleOpenCreateAgent}
                             variant="secondary"
                             size="sm"
                             icon={<Plus size={14} />}
@@ -485,6 +519,15 @@ export default function Dashboard() {
           </div>
         </form>
       </Modal>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        reason={upgradeReason}
+        message={upgradeMessage}
+        currentPlan={selectedWs?.usage?.plan_name}
+      />
     </div>
   );
 }

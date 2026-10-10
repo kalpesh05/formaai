@@ -22,6 +22,9 @@ interface CustomerData {
     industry?: string;
     onboarding_status: BadgeStatus;
     plan_tier: string;
+    billing_interval?: string;
+    subscription_status?: string;
+    trial_ends_at?: string | null;
     admin_notes?: string;
     feature_flags?: Record<string, boolean>;
     created_at: string;
@@ -135,6 +138,10 @@ export default function AdminCustomerDetail() {
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [industry, setIndustry] = useState('');
   const [planTier, setPlanTier] = useState('growth');
+  const [billingInterval, setBillingInterval] = useState('monthly');
+  const [subscriptionStatus, setSubscriptionStatus] = useState('trialing');
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+  const [extendingTrial, setExtendingTrial] = useState(false);
   const [onboardingStatus, setOnboardingStatus] = useState<BadgeStatus>('requested');
   const [adminNotes, setAdminNotes] = useState('');
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({
@@ -183,6 +190,9 @@ export default function AdminCustomerDetail() {
       setWebsiteUrl(res.customer.website_url || '');
       setIndustry(res.customer.industry || '');
       setPlanTier(res.customer.plan_tier || 'growth');
+      setBillingInterval(res.customer.billing_interval || 'monthly');
+      setSubscriptionStatus(res.customer.subscription_status || 'trialing');
+      setTrialEndsAt(res.customer.trial_ends_at || null);
       setOnboardingStatus(res.customer.onboarding_status || 'requested');
       setAdminNotes(res.customer.admin_notes || '');
       setFeatureFlags(res.customer.feature_flags || { forms: false, mailbox: false, tickets: false, logs: false });
@@ -242,6 +252,35 @@ export default function AdminCustomerDetail() {
     }
   };
 
+  const handleExtendTrial = async (days = 7) => {
+    setExtendingTrial(true);
+    try {
+      const res = await apiRequest(`/admin/customers/${id}`, 'PATCH', {
+        extend_trial_days: days,
+      });
+      if (res) {
+        setTrialEndsAt(res.trial_ends_at);
+        setSubscriptionStatus(res.subscription_status);
+        if (data) {
+          setData({
+            ...data,
+            customer: {
+              ...data.customer,
+              trial_ends_at: res.trial_ends_at,
+              subscription_status: res.subscription_status,
+            }
+          });
+        }
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (err: any) {
+      alert(`Failed to extend trial: ${err.message}`);
+    } finally {
+      setExtendingTrial(false);
+    }
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -254,6 +293,8 @@ export default function AdminCustomerDetail() {
         website_url: websiteUrl,
         industry: industry,
         plan_tier: planTier,
+        billing_interval: billingInterval,
+        subscription_status: subscriptionStatus,
         onboarding_status: onboardingStatus,
         admin_notes: adminNotes,
         feature_flags: featureFlags,
@@ -271,6 +312,8 @@ export default function AdminCustomerDetail() {
             website_url: websiteUrl,
             industry,
             plan_tier: planTier,
+            billing_interval: billingInterval,
+            subscription_status: subscriptionStatus,
             onboarding_status: onboardingStatus,
             admin_notes: adminNotes,
             feature_flags: featureFlags,
@@ -580,14 +623,74 @@ export default function AdminCustomerDetail() {
                     <select
                       value={planTier}
                       onChange={(e) => setPlanTier(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-brand-500 capitalize"
+                    >
+                      <option value="trial">14-Day Free Trial ($0)</option>
+                      <option value="starter">Starter Plan ($29/mo)</option>
+                      <option value="growth">Growth Plan ($79/mo)</option>
+                      <option value="business">Business Suite ($199/mo)</option>
+                      <option value="enterprise">Enterprise (Custom / $499+)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Billing Cycle
+                    </label>
+                    <select
+                      value={billingInterval}
+                      onChange={(e) => setBillingInterval(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-brand-500"
                     >
-                      <option value="starter">Starter</option>
-                      <option value="growth">Growth</option>
-                      <option value="enterprise">Enterprise</option>
+                      <option value="monthly">Monthly Recurring</option>
+                      <option value="yearly">Yearly (20% Off Prepaid)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Subscription Status
+                    </label>
+                    <select
+                      value={subscriptionStatus}
+                      onChange={(e) => setSubscriptionStatus(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-brand-500 capitalize"
+                    >
+                      <option value="trialing">Trialing (Active Test)</option>
+                      <option value="active">Active (Paid Customer)</option>
+                      <option value="past_due">Past Due (Payment Issue)</option>
+                      <option value="expired">Expired (Trial or Sub Ended)</option>
+                      <option value="canceled">Canceled</option>
                     </select>
                   </div>
                 </div>
+
+                {/* Trial Extension Bar if Trialing */}
+                {(subscriptionStatus === 'trialing' || planTier === 'trial') && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={16} className="text-amber-600" />
+                      <div>
+                        <p className="text-xs font-bold text-amber-900">14-Day Trial Period Active</p>
+                        <p className="text-[11px] text-amber-700">
+                          {trialEndsAt
+                            ? `Expires on: ${new Date(trialEndsAt).toLocaleDateString()} (${Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days left)`
+                            : 'Trial duration active'}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      loading={extendingTrial}
+                      onClick={() => handleExtendTrial(7)}
+                      className="text-xs border-amber-300 text-amber-900 hover:bg-amber-100"
+                    >
+                      + Extend Trial (+7 Days)
+                    </Button>
+                  </div>
+                )}
 
                 {/* Feature Modules & Add-ons Configurator */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">

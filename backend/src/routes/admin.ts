@@ -339,9 +339,23 @@ router.patch('/customers/:id', asyncHandler(async (req: AuthenticatedRequest, re
     industry,
     onboarding_status,
     plan_tier,
+    billing_interval,
+    subscription_status,
+    trial_ends_at,
+    extend_trial_days,
     admin_notes,
     feature_flags,
   } = req.body;
+
+  if (extend_trial_days && typeof extend_trial_days === 'number') {
+    await query(
+      `UPDATE client_workspaces
+       SET trial_ends_at = GREATEST(COALESCE(trial_ends_at, now()), now()) + ($1 || ' days')::interval,
+           subscription_status = 'trialing'
+       WHERE id = $2`,
+      [extend_trial_days, id]
+    );
+  }
 
   const result = await query(
     `UPDATE client_workspaces
@@ -353,9 +367,12 @@ router.patch('/customers/:id', asyncHandler(async (req: AuthenticatedRequest, re
          industry = COALESCE($6, industry),
          onboarding_status = COALESCE($7, onboarding_status),
          plan_tier = COALESCE($8, plan_tier),
-         admin_notes = COALESCE($9, admin_notes),
-         feature_flags = COALESCE($10, feature_flags)
-     WHERE id = $11
+         billing_interval = COALESCE($9, billing_interval),
+         subscription_status = COALESCE($10, subscription_status),
+         trial_ends_at = COALESCE($11, trial_ends_at),
+         admin_notes = COALESCE($12, admin_notes),
+         feature_flags = COALESCE($13, feature_flags)
+     WHERE id = $14
      RETURNING *`,
     [
       client_name ?? null,
@@ -366,6 +383,9 @@ router.patch('/customers/:id', asyncHandler(async (req: AuthenticatedRequest, re
       industry ?? null,
       onboarding_status ?? null,
       plan_tier ?? null,
+      billing_interval ?? null,
+      subscription_status ?? null,
+      trial_ends_at ?? null,
       admin_notes ?? null,
       feature_flags ? JSON.stringify(feature_flags) : null,
       id,
@@ -586,6 +606,53 @@ router.get('/customers/:id/conversations/:conversationId', asyncHandler(async (r
     messages: messagesRes.rows,
     recent_agent_actions: actionsRes.rows,
   });
+}));
+
+/**
+ * GET /api/v1/admin/platform/modules
+ * Get global module release states (internal, beta, live)
+ */
+router.get('/platform/modules', asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+  const { getGlobalModuleLifecycle } = await import('../utils/planLimits');
+  const modules = await getGlobalModuleLifecycle();
+  return res.json({ modules });
+}));
+
+/**
+ * PATCH /api/v1/admin/platform/modules
+ * Update release stage and minimum plan for a module
+ */
+router.patch('/platform/modules', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { module_key, status, min_plan, name, description } = req.body;
+  if (!module_key) {
+    return res.status(400).json({ error: 'module_key is required' });
+  }
+
+  const { getGlobalModuleLifecycle } = await import('../utils/planLimits');
+  const currentModules = await getGlobalModuleLifecycle();
+  if (!currentModules[module_key]) {
+    return res.status(404).json({ error: `Unknown module key: ${module_key}` });
+  }
+
+  const updatedConfig = {
+    ...currentModules[module_key],
+    ...(status ? { status } : {}),
+    ...(min_plan ? { min_plan } : {}),
+    ...(name ? { name } : {}),
+    ...(description ? { description } : {}),
+  };
+
+  currentModules[module_key] = updatedConfig;
+
+  await query(
+    `INSERT INTO platform_settings (key, value, updated_at)
+     VALUES ('module_lifecycle', $1, now())
+     ON CONFLICT (key) DO UPDATE
+     SET value = $1, updated_at = now()`,
+    [JSON.stringify(currentModules)]
+  );
+
+  return res.json({ success: true, modules: currentModules });
 }));
 
 export default router;
