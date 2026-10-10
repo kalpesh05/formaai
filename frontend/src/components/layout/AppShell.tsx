@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  Plus, LogOut, LayoutDashboard,
-  FileText, Ticket, Mail, Loader, KeyRound, Check, BookOpen, ClipboardList
+  Plus, LogOut,
+  FileText, Ticket, Mail, Loader, KeyRound, Check, BookOpen, ClipboardList, Bot
 } from 'lucide-react';
 import { removeToken, getUser, apiRequest } from '../../services/api';
 import { useWorkspace } from '../../context/WorkspaceContext';
@@ -131,54 +131,82 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
 
           {/* Nav Links */}
-          <nav className="p-4 space-y-1.5">
-            <NavLink to="/" end className={navLinkClass}>
-              <LayoutDashboard size={18} />
-              <span>Agents Overview</span>
-            </NavLink>
+          <nav className="p-4 space-y-4">
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 mb-2">
+                Core Chatbot Platform
+              </p>
+              <div className="space-y-1">
+                <NavLink to="/" end className={navLinkClass}>
+                  <Bot size={18} />
+                  <span>AI Chatbots &amp; Agents</span>
+                </NavLink>
 
-            {selectedWs && (
-              <>
-                <NavLink
-                  to={`/workspaces/${selectedWs.id}/forms`}
-                  className={navLinkClass}
-                >
-                  <ClipboardList size={18} />
-                  <span>Forms &amp; Data</span>
+                <NavLink to="/docs" className={navLinkClass}>
+                  <BookOpen size={18} />
+                  <span>Docs &amp; Widget Setup</span>
                 </NavLink>
-                <NavLink
-                  to={`/workspaces/${selectedWs.id}/logs`}
-                  className={navLinkClass}
-                >
-                  <FileText size={18} />
-                  <span>Execution Logs</span>
-                </NavLink>
-                <NavLink
-                  to={`/workspaces/${selectedWs.id}/tickets`}
-                  className={navLinkClass}
-                >
-                  <Ticket size={18} />
-                  <span>Customer Tickets</span>
-                </NavLink>
-                <NavLink
-                  to={`/workspaces/${selectedWs.id}/mailbox`}
-                  className={navLinkClass}
-                >
-                  <Mail size={18} />
-                  <span>Support Mailbox</span>
-                </NavLink>
-              </>
+              </div>
+            </div>
+
+            {/* Plan-Gated Add-On Modules (Hidden unless enabled via Admin Panel plans & pricing) */}
+            {selectedWs && (selectedWs.feature_flags?.forms || selectedWs.feature_flags?.mailbox || selectedWs.feature_flags?.tickets || selectedWs.feature_flags?.logs) && (
+              <div className="pt-2 border-t border-slate-800">
+                <div className="flex items-center justify-between px-3 mb-2">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Plan Add-on Modules
+                  </p>
+                  <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-brand-950 text-brand-400 border border-brand-800 font-mono">
+                    {selectedWs.plan_tier || 'active'}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {selectedWs.feature_flags?.forms && (
+                    <NavLink
+                      to={`/workspaces/${selectedWs.id}/forms`}
+                      className={navLinkClass}
+                    >
+                      <ClipboardList size={17} />
+                      <span>Forms &amp; Lead Data</span>
+                    </NavLink>
+                  )}
+
+                  {selectedWs.feature_flags?.mailbox && (
+                    <NavLink
+                      to={`/workspaces/${selectedWs.id}/mailbox`}
+                      className={navLinkClass}
+                    >
+                      <Mail size={17} />
+                      <span>Support Mailbox</span>
+                    </NavLink>
+                  )}
+
+                  {selectedWs.feature_flags?.tickets && (
+                    <NavLink
+                      to={`/workspaces/${selectedWs.id}/tickets`}
+                      className={navLinkClass}
+                    >
+                      <Ticket size={17} />
+                      <span>Customer Tickets</span>
+                    </NavLink>
+                  )}
+
+                  {selectedWs.feature_flags?.logs && (
+                    <NavLink
+                      to={`/workspaces/${selectedWs.id}/logs`}
+                      className={navLinkClass}
+                    >
+                      <FileText size={17} />
+                      <span>Execution Logs</span>
+                    </NavLink>
+                  )}
+                </div>
+              </div>
             )}
-
-
-            <NavLink to="/docs" className={navLinkClass}>
-              <BookOpen size={18} />
-              <span>Docs &amp; Setup Guider</span>
-            </NavLink>
 
             {!selectedWs && !loadingWs && (
               <div className="px-3 py-2 text-xs text-slate-600 italic">
-                Create a workspace to see logs &amp; tickets
+                Create a workspace to manage agents
               </div>
             )}
           </nav>

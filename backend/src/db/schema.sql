@@ -39,6 +39,7 @@ ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS industry TEXT;
 ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS onboarding_status TEXT NOT NULL DEFAULT 'requested';
 ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS plan_tier TEXT NOT NULL DEFAULT 'growth';
 ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS admin_notes TEXT;
+ALTER TABLE client_workspaces ADD COLUMN IF NOT EXISTS feature_flags JSONB NOT NULL DEFAULT '{"forms": false, "mailbox": false, "tickets": false, "logs": false}';
 
 CREATE INDEX IF NOT EXISTS idx_client_workspaces_agency ON client_workspaces(agency_id);
 CREATE INDEX IF NOT EXISTS idx_client_workspaces_status ON client_workspaces(onboarding_status);

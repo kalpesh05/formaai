@@ -6,6 +6,14 @@ export interface Workspace {
   id: string;
   client_name: string;
   created_at: string;
+  plan_tier?: string;
+  feature_flags?: {
+    forms?: boolean;
+    mailbox?: boolean;
+    tickets?: boolean;
+    logs?: boolean;
+    [key: string]: boolean | undefined;
+  };
 }
 
 interface WorkspaceContextValue {

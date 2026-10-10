@@ -113,25 +113,97 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Page Header */}
-      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm flex-shrink-0">
-        <h1 className="text-xl font-bold text-slate-800">
-          {selectedWs ? `${selectedWs.client_name}` : 'Forma AI Dashboard'}
-        </h1>
+      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-xs flex-shrink-0">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <Bot className="text-brand-600" size={20} />
+            {selectedWs ? `${selectedWs.client_name} — AI Chatbots & Agents` : 'AI Chatbots & Agents'}
+          </h1>
+          <p className="text-[11px] text-slate-500">
+            Build, train, and deploy customer-facing AI chatbots with knowledge base grounding and real-time tools
+          </p>
+        </div>
         {selectedWs && (
           <Button
             onClick={() => setShowAgentModal(true)}
             icon={<Plus size={16} />}
             variant="primary"
             size="md"
+            className="shadow-sm font-semibold text-xs"
           >
-            Create AI Agent
+            Create New Chatbot Agent
           </Button>
         )}
       </header>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-6xl w-full mx-auto space-y-8">
+        <div className="max-w-6xl w-full mx-auto space-y-6">
+
+          {/* Chatbot Platform Quick-Start Banner */}
+          {selectedWs && (
+            <div className="bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 text-white rounded-2xl p-6 shadow-sm border border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-brand-500/20 border border-brand-400/30 flex items-center justify-center text-brand-400">
+                    <Sparkles size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-white tracking-wide">
+                      Forma AI Chatbot &amp; Agent Studio
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Your 4-step workflow to launch a custom 24/7 AI chatbot on your website
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-mono tracking-wider bg-brand-900/60 text-brand-300 border border-brand-700/60 px-2.5 py-1 rounded-full">
+                    Flagship Core Platform
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-white/10 text-xs">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-brand-400 font-bold text-[11px]">
+                    <span>1.</span> Persona &amp; Rules
+                  </div>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Set system prompt guidelines, select Gemini models, and configure response tone.
+                  </p>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-indigo-400 font-bold text-[11px]">
+                    <span>2.</span> Knowledge Ingestion
+                  </div>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Automatically crawl client URLs or upload PDF/DOCX files for noise-free RAG grounding.
+                  </p>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[11px]">
+                    <span>3.</span> Live Sandbox
+                  </div>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Test bot responses in real-time with session state, simulated users, and vector inspect.
+                  </p>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-purple-400 font-bold text-[11px]">
+                    <span>4.</span> Embed Widget
+                  </div>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Copy 1-line script tag to launch the floating chatbot widget on Webflow or WordPress.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Empty state: no workspaces */}
           {!loadingWs && workspaces.length === 0 && (

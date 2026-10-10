@@ -20,6 +20,7 @@ router.get('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =>
   const result = await query(
     `SELECT cw.id, cw.client_name, cw.contact_name, cw.contact_email, cw.contact_phone,
             cw.website_url, cw.industry, cw.onboarding_status, cw.plan_tier, cw.admin_notes,
+            COALESCE(cw.feature_flags, '{"forms": false, "mailbox": false, "tickets": false, "logs": false}'::jsonb) as feature_flags,
             cw.created_at, 
             COALESCE(COUNT(a.id), 0)::int as agent_count
      FROM client_workspaces cw
@@ -86,6 +87,7 @@ router.get('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response)
   const result = await query(
     `SELECT cw.id, cw.client_name, cw.contact_name, cw.contact_email, cw.contact_phone,
             cw.website_url, cw.industry, cw.onboarding_status, cw.plan_tier, cw.admin_notes,
+            COALESCE(cw.feature_flags, '{"forms": false, "mailbox": false, "tickets": false, "logs": false}'::jsonb) as feature_flags,
             cw.created_at,
             COALESCE(COUNT(a.id), 0)::int as agent_count
      FROM client_workspaces cw

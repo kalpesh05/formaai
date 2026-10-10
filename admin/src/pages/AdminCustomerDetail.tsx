@@ -4,7 +4,7 @@ import {
   ArrowLeft, Building2, Globe, Mail, Phone, ExternalLink,
   Bot, Settings, BarChart2, MessageSquare, Calendar,
   Copy, Check, Search, AlertCircle, Save, ChevronRight, Play,
-  GitPullRequest
+  GitPullRequest, ClipboardList, FileText, Ticket
 } from 'lucide-react';
 import { apiRequest, API_HOST } from '../services/api';
 import Button from '../components/ui/Button';
@@ -23,6 +23,7 @@ interface CustomerData {
     onboarding_status: BadgeStatus;
     plan_tier: string;
     admin_notes?: string;
+    feature_flags?: Record<string, boolean>;
     created_at: string;
     agent_count: number;
     conversation_count: number;
@@ -136,6 +137,12 @@ export default function AdminCustomerDetail() {
   const [planTier, setPlanTier] = useState('growth');
   const [onboardingStatus, setOnboardingStatus] = useState<BadgeStatus>('requested');
   const [adminNotes, setAdminNotes] = useState('');
+  const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({
+    forms: false,
+    mailbox: false,
+    tickets: false,
+    logs: false,
+  });
 
   // Search filter in conversations
   const [convSearch, setConvSearch] = useState('');
@@ -178,6 +185,7 @@ export default function AdminCustomerDetail() {
       setPlanTier(res.customer.plan_tier || 'growth');
       setOnboardingStatus(res.customer.onboarding_status || 'requested');
       setAdminNotes(res.customer.admin_notes || '');
+      setFeatureFlags(res.customer.feature_flags || { forms: false, mailbox: false, tickets: false, logs: false });
     } catch (err: any) {
       setError(err.message || 'Failed to load customer');
     } finally {
@@ -248,6 +256,7 @@ export default function AdminCustomerDetail() {
         plan_tier: planTier,
         onboarding_status: onboardingStatus,
         admin_notes: adminNotes,
+        feature_flags: featureFlags,
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -264,6 +273,7 @@ export default function AdminCustomerDetail() {
             plan_tier: planTier,
             onboarding_status: onboardingStatus,
             admin_notes: adminNotes,
+            feature_flags: featureFlags,
           }
         });
       }
@@ -576,6 +586,105 @@ export default function AdminCustomerDetail() {
                       <option value="growth">Growth</option>
                       <option value="enterprise">Enterprise</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Feature Modules & Add-ons Configurator */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                        Feature Modules &amp; Add-on Access
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Assign or hide extended modules for this customer based on their plan and pricing tier.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                      Plan-Gated
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                    {/* Core: Chatbot with Agents */}
+                    <div className="p-3 bg-white border border-brand-200 rounded-lg flex items-center justify-between shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <Bot size={16} className="text-brand-600" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">AI Chatbots &amp; Agents</p>
+                          <p className="text-[10px] text-slate-400">Flagship Core Platform</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-brand-600 uppercase bg-brand-50 px-2 py-0.5 rounded">Always Active</span>
+                    </div>
+
+                    {/* Add-on: Forms & Leads */}
+                    <label className="p-3 bg-white border border-slate-200 hover:border-slate-300 rounded-lg flex items-center justify-between cursor-pointer transition-colors shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <ClipboardList size={16} className="text-indigo-600" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">Forma Form Builder</p>
+                          <p className="text-[10px] text-slate-400">Lead capture &amp; surveys</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={featureFlags.forms || false}
+                        onChange={(e) => setFeatureFlags({ ...featureFlags, forms: e.target.checked })}
+                        className="h-4 w-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300"
+                      />
+                    </label>
+
+                    {/* Add-on: Support Mailbox */}
+                    <label className="p-3 bg-white border border-slate-200 hover:border-slate-300 rounded-lg flex items-center justify-between cursor-pointer transition-colors shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <Mail size={16} className="text-purple-600" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">Support Mailbox</p>
+                          <p className="text-[10px] text-slate-400">Email copilot &amp; auto-reply</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={featureFlags.mailbox || false}
+                        onChange={(e) => setFeatureFlags({ ...featureFlags, mailbox: e.target.checked })}
+                        className="h-4 w-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300"
+                      />
+                    </label>
+
+                    {/* Add-on: Tickets */}
+                    <label className="p-3 bg-white border border-slate-200 hover:border-slate-300 rounded-lg flex items-center justify-between cursor-pointer transition-colors shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <Ticket size={16} className="text-amber-600" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">Ticket Helpdesk</p>
+                          <p className="text-[10px] text-slate-400">Multi-department triage</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={featureFlags.tickets || false}
+                        onChange={(e) => setFeatureFlags({ ...featureFlags, tickets: e.target.checked })}
+                        className="h-4 w-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300"
+                      />
+                    </label>
+
+                    {/* Add-on: Logs */}
+                    <label className="p-3 bg-white border border-slate-200 hover:border-slate-300 rounded-lg flex items-center justify-between cursor-pointer transition-colors shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <FileText size={16} className="text-slate-600" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">Execution Logs</p>
+                          <p className="text-[10px] text-slate-400">Raw action audit traces</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={featureFlags.logs || false}
+                        onChange={(e) => setFeatureFlags({ ...featureFlags, logs: e.target.checked })}
+                        className="h-4 w-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300"
+                      />
+                    </label>
                   </div>
                 </div>
 

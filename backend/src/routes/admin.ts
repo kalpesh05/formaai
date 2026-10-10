@@ -340,6 +340,7 @@ router.patch('/customers/:id', asyncHandler(async (req: AuthenticatedRequest, re
     onboarding_status,
     plan_tier,
     admin_notes,
+    feature_flags,
   } = req.body;
 
   const result = await query(
@@ -352,8 +353,9 @@ router.patch('/customers/:id', asyncHandler(async (req: AuthenticatedRequest, re
          industry = COALESCE($6, industry),
          onboarding_status = COALESCE($7, onboarding_status),
          plan_tier = COALESCE($8, plan_tier),
-         admin_notes = COALESCE($9, admin_notes)
-     WHERE id = $10
+         admin_notes = COALESCE($9, admin_notes),
+         feature_flags = COALESCE($10, feature_flags)
+     WHERE id = $11
      RETURNING *`,
     [
       client_name ?? null,
@@ -365,6 +367,7 @@ router.patch('/customers/:id', asyncHandler(async (req: AuthenticatedRequest, re
       onboarding_status ?? null,
       plan_tier ?? null,
       admin_notes ?? null,
+      feature_flags ? JSON.stringify(feature_flags) : null,
       id,
     ]
   );
