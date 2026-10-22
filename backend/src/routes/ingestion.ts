@@ -89,10 +89,19 @@ router.post('/agents/:id/data-sources/url', authenticateAgency, asyncHandler(asy
   // 2. Perform URL content extraction and embedding in the background
   (async () => {
     try {
-      const text = await extractTextFromUrl(url);
-      const titleMatch = text.match(/^#\s+(.+)$/m);
-      const docTitle = titleMatch ? `${titleMatch[1].trim()} (${url})` : url;
-      await processIngestion(agentId, dataSource.id, text, docTitle);
+      const isSitemap = url.toLowerCase().endsWith('.xml') || url.toLowerCase().includes('sitemap');
+      if (isSitemap) {
+        const pages = await crawlDocumentationSite(url, { maxPages: 25 });
+        if (pages.length === 0) {
+          throw new Error('No crawlable article URLs found in this sitemap.');
+        }
+        await processPagesIngestion(agentId, dataSource.id, pages);
+      } else {
+        const text = await extractTextFromUrl(url);
+        const titleMatch = text.match(/^#\s+(.+)$/m);
+        const docTitle = titleMatch ? `${titleMatch[1].trim()} (${url})` : url;
+        await processIngestion(agentId, dataSource.id, text, docTitle);
+      }
     } catch (err: any) {
       console.error(`Background URL ingestion failed for agent ${agentId}, source ${dataSource.id}:`, err.message);
       await query(`UPDATE data_sources SET status = 'failed' WHERE id = $1`, [dataSource.id]);

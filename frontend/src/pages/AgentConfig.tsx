@@ -1210,8 +1210,8 @@ export default function AgentConfig() {
                     </div>
                     <p className="text-[11px] text-slate-400">
                       {crawlMode === 'recursive'
-                        ? 'Recursively crawls internal docs and subpages within the domain path. Cleans markdown, tables, and API code.'
-                        : 'Scrapes and embeds a single documentation page or help center article.'}
+                        ? 'Recursively crawls internal documentation or visits all articles listed in your sitemap.xml feed.'
+                        : 'Scrapes and embeds a single documentation page, help center article, or sitemap.xml.'}
                     </p>
                     <div className="flex flex-col gap-3">
                       <input
@@ -1220,7 +1220,7 @@ export default function AgentConfig() {
                         value={urlToScrape}
                         onChange={(e) => setUrlToScrape(e.target.value)}
                         className="rounded border-slate-300 border px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                        placeholder={crawlMode === 'recursive' ? "https://docs.acme.com/v2/" : "https://docs.acme.com/help/formulas"}
+                        placeholder={crawlMode === 'recursive' ? "https://docs.acme.com/ or https://docs.acme.com/sitemap.xml" : "https://docs.acme.com/help/formulas or /sitemap.xml"}
                       />
                       {crawlMode === 'recursive' && (
                         <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-xs">

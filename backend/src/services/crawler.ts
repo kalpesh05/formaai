@@ -14,9 +14,63 @@ export interface CrawlOptions {
 }
 
 /**
+ * Fetches and parses a sitemap.xml or sitemapindex to discover canonical article URLs.
+ */
+export async function parseSitemapUrls(sitemapUrl: string, maxUrls = 50): Promise<string[]> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 7000);
+    const res = await fetch(sitemapUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; FormaAI-Crawler/1.0; +https://forma.ai)',
+        'Accept': 'application/xml, text/xml, application/xhtml+xml, text/html, */*'
+      }
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) return [];
+    const xmlText = await res.text();
+
+    // Extract all <loc> links (including inside CDATA)
+    const locMatches = [...xmlText.matchAll(/<loc>(?:<!\[CDATA\[)?\s*(https?:\/\/[^<\]\s]+)\s*(?:\]\]>)?<\/loc>/gi)];
+    const urls = locMatches.map(m => m[1].trim());
+
+    if (urls.length === 0) return [];
+
+    // Check if this is a sitemap index pointing to sub-sitemaps (e.g. sitemap-posts.xml, help-sitemap.xml)
+    const subSitemaps = urls.filter(u => u.endsWith('.xml') || u.includes('sitemap'));
+    if (subSitemaps.length > 0 && subSitemaps.length >= urls.length * 0.7) {
+      const combined: string[] = [];
+      for (const sub of subSitemaps.slice(0, 5)) {
+        const subUrls = await parseSitemapUrls(sub, maxUrls);
+        combined.push(...subUrls);
+        if (combined.length >= maxUrls) break;
+      }
+      return combined.slice(0, maxUrls);
+    }
+
+    // Filter out non-HTML assets (images, PDFs, css, js)
+    const validPageUrls = urls.filter(u => {
+      const extMatch = u.match(/\.([a-z0-9]+)$/i);
+      if (extMatch && !['html', 'htm'].includes(extMatch[1].toLowerCase())) {
+        return false;
+      }
+      return true;
+    });
+
+    return validPageUrls.slice(0, maxUrls);
+  } catch (err: any) {
+    console.warn(`Sitemap parsing skipped for ${sitemapUrl}:`, err.message);
+    return [];
+  }
+}
+
+/**
  * Recursive Documentation Crawler
  * Crawls a documentation domain starting at rootUrl, extracts main article content
  * stripping sidebars/navbars/footers, and converts to structured Markdown.
+ * Supports direct sitemap.xml URLs, sitemap index files, and HTML link crawling.
  */
 export async function crawlDocumentationSite(
   rootUrl: string,
@@ -29,8 +83,41 @@ export async function crawlDocumentationSite(
   const basePath = parsedRoot.pathname.replace(/\/$/, '');
 
   const visited = new Set<string>();
-  const queue: string[] = [normalizeUrl(rootUrl)];
+  const queue: string[] = [];
   const results: CrawledPage[] = [];
+
+  // 1. Check if the rootUrl is explicitly a sitemap XML or feed
+  const isDirectSitemap = rootUrl.toLowerCase().endsWith('.xml') || rootUrl.toLowerCase().includes('sitemap');
+  if (isDirectSitemap) {
+    const sitemapUrls = await parseSitemapUrls(rootUrl, maxPages * 2);
+    for (const u of sitemapUrls) {
+      const clean = normalizeUrl(u);
+      if (!visited.has(clean) && !queue.includes(clean)) {
+        queue.push(clean);
+      }
+    }
+  }
+
+  // 2. If no direct sitemap was provided or no URLs were returned, seed with rootUrl
+  if (queue.length === 0) {
+    queue.push(normalizeUrl(rootUrl));
+
+    // Proactively probe for a standard /sitemap.xml to accelerate article discovery
+    try {
+      const probeSitemap = `${parsedRoot.origin}/sitemap.xml`;
+      const autoDiscovered = await parseSitemapUrls(probeSitemap, maxPages);
+      for (const u of autoDiscovered) {
+        if (u.includes(allowedHostname)) {
+          const clean = normalizeUrl(u);
+          if (!visited.has(clean) && !queue.includes(clean)) {
+            queue.push(clean);
+          }
+        }
+      }
+    } catch {
+      // Ignore background sitemap discovery errors
+    }
+  }
 
   const turndownService = new TurndownService({
     headingStyle: 'atx',
