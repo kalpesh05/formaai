@@ -239,6 +239,15 @@ Context Information:
 ${chunksText}
 ---------------------
 `;
+    } else {
+      systemPrompt = `${basePrompt}
+
+NOTE ON AVAILABLE KNOWLEDGE:
+No verified documentation was retrieved for this specific query.
+- For general greetings or basic conversational queries, respond warmly and professionally.
+- For company-specific policies, technical steps, pricing specifics, or feature details not in your instructions, do NOT invent or hallucinate facts.
+- State politely what you know, explain that full details on this specific topic are being updated, and offer to connect the user with the human support team or take down their details.
+`;
     }
 
     if (user_context && typeof user_context === 'object') {
