@@ -181,7 +181,14 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
   }
 
   // 5. Confidence Threshold & Guardrail Verification
-  const confidenceThreshold = agent.config?.confidenceThreshold ?? 0.70;
+  // In 768-d vector cosine distance, a similarity >= 0.48 is a strong domain match
+  // between short user prompts and rich documentation chunks.
+  // We cap strictness at 0.50 so 56% and 69% matches pass to the LLM for deep synthesis.
+  const rawThreshold = agent.config?.confidenceThreshold;
+  const confidenceThreshold = typeof rawThreshold === 'number'
+    ? Math.min(rawThreshold, 0.50)
+    : 0.48;
+
   const fallbackMode = agent.config?.fallbackMode || 'escalate_ticket';
   const copilotMode = agent.config?.copilotMode === true;
   const isGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|howdy|who are you)\b/i.test(message.trim());
@@ -189,7 +196,7 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
   let guardrailTriggered = false;
   let fallbackReply = '';
 
-  // Trigger guardrail if it's a technical/domain query and confidence is below threshold
+  // Trigger guardrail if it's a technical/domain query and similarity is genuinely low (< 48-50%)
   if (!isGreeting && topSimilarity > 0 && topSimilarity < confidenceThreshold) {
     guardrailTriggered = true;
     if (fallbackMode === 'escalate_ticket') {

@@ -210,7 +210,7 @@ export default function AgentConfig() {
   const [model, setModel] = useState('gemini-1.5-flash');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [temperature, setTemperature] = useState(0.7);
-  const [confidenceThreshold, setConfidenceThreshold] = useState(0.70);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.50);
   const [fallbackMode, setFallbackMode] = useState<'escalate_ticket' | 'safe_refusal'>('escalate_ticket');
   const [copilotMode, setCopilotMode] = useState(false);
 
@@ -866,17 +866,17 @@ export default function AgentConfig() {
                       </div>
                       <input
                         type="range"
-                        min="0.50"
-                        max="0.95"
+                        min="0.30"
+                        max="0.80"
                         step="0.05"
                         value={confidenceThreshold}
                         onChange={(e) => { setConfidenceThreshold(parseFloat(e.target.value)); setIsDirty(true); }}
                         className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-600 mt-2.5"
                       />
                       <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-                        <span>Permissive (50%)</span>
-                        <span>Strict (70% - Recommended)</span>
-                        <span>Near-Exact (95%)</span>
+                        <span>Permissive (30%)</span>
+                        <span>Balanced (50% - Recommended)</span>
+                        <span>Strict (75%)</span>
                       </div>
                     </div>
 
