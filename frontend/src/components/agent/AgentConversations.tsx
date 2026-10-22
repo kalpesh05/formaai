@@ -54,6 +54,11 @@ export default function AgentConversations({ agentId }: AgentConversationsProps)
   const [replyLoading, setReplyLoading] = useState(false);
   const [replyError, setReplyError] = useState('');
 
+  // Auto-Learn state
+  const [learnLoading, setLearnLoading] = useState(false);
+  const [learnSuccess, setLearnSuccess] = useState(false);
+  const [learnFeedback, setLearnFeedback] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -152,6 +157,28 @@ export default function AgentConversations({ agentId }: AgentConversationsProps)
       setReplyError(err.message || 'Failed to send operator reply');
     } finally {
       setReplyLoading(false);
+    }
+  };
+
+  const handleLearnFromChat = async () => {
+    if (!selectedConvId) return;
+    setLearnLoading(true);
+    setLearnSuccess(false);
+    setLearnFeedback(null);
+    try {
+      const res = await apiRequest(`/agents/${agentId}/conversations/${selectedConvId}/learn`, 'POST');
+      if (res?.success) {
+        setLearnSuccess(true);
+        setLearnFeedback('✨ Q&A extracted and permanently indexed in Knowledge Base!');
+        setTimeout(() => {
+          setLearnSuccess(false);
+          setLearnFeedback(null);
+        }, 5000);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to extract knowledge from conversation');
+    } finally {
+      setLearnLoading(false);
     }
   };
 
@@ -309,13 +336,35 @@ export default function AgentConversations({ agentId }: AgentConversationsProps)
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                     Live RAG Session
                   </span>
+
+                  <button
+                    type="button"
+                    onClick={handleLearnFromChat}
+                    disabled={learnLoading || transcript.length < 2}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1 rounded-lg transition-colors disabled:opacity-50 shadow-xs"
+                    title="Automatically extract verified Q&A from this conversation into RAG Knowledge Base"
+                  >
+                    {learnLoading ? (
+                      <Loader size={12} className="animate-spin text-purple-600" />
+                    ) : (
+                      <Sparkles size={12} className="text-purple-600" />
+                    )}
+                    <span>{learnSuccess ? 'Learned to RAG!' : 'Auto-Learn Q&A'}</span>
+                  </button>
                 </div>
               </div>
+
+              {learnFeedback && (
+                <div className="px-5 py-2 bg-purple-50 border-b border-purple-200 text-xs text-purple-800 flex items-center gap-2 font-medium">
+                  <Sparkles size={14} className="text-purple-600 flex-shrink-0" />
+                  <span>{learnFeedback}</span>
+                </div>
+              )}
 
               {/* Message Transcript Stream */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/30">

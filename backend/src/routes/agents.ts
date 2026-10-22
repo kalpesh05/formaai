@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import { AuthenticatedRequest, authenticateAgency, assertWorkspaceBelongsToAgency, assertAgentBelongsToAgency } from '../middleware/auth';
 import pool, { query } from '../config/db';
 import { TEMPLATES } from '../config/templates';
+import { callGemini } from '../services/router';
+import { processIngestion } from '../services/ingestion';
 
 const router = Router();
 
@@ -408,6 +410,74 @@ router.post('/agents/:id/conversations/:convId/reply', authenticateAgency, async
   `, [convId, message.trim()]);
 
   return res.status(201).json(insertRes.rows[0]);
+}));
+
+// POST /api/v1/agents/:id/conversations/:convId/learn - Extract resolved Q&A from conversation and save into RAG
+router.post('/agents/:id/conversations/:convId/learn', authenticateAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id: agentId, convId } = req.params;
+  const agencyId = req.agencyId!;
+
+  await assertAgentBelongsToAgency(agentId, agencyId);
+
+  // Fetch full conversation history
+  const messagesRes = await query(`
+    SELECT role, content FROM messages
+    WHERE conversation_id = $1
+    ORDER BY created_at ASC
+  `, [convId]);
+
+  if (!messagesRes.rowCount || messagesRes.rowCount < 2) {
+    return res.status(400).json({ error: 'Conversation must have at least 2 messages to extract a verified Q&A pair.' });
+  }
+
+  const transcriptText = messagesRes.rows
+    .map(m => `${m.role.toUpperCase()}: ${m.content}`)
+    .join('\n\n');
+
+  const extractionPrompt = `You are an Expert Customer Support Knowledge Architect.
+Analyze the following conversation transcript between a customer and support/bot.
+Extract the customer's core question or problem and the verified solution/steps provided.
+Format the output as a clean, self-contained Markdown FAQ document:
+# Question / Issue Title
+### Problem Description:
+(Explain the user's issue clearly)
+### Verified Resolution & Steps:
+(Step-by-step resolution)
+
+Do not add conversational filler or hello/goodbyes. Only output high-value instructional knowledge.`;
+
+  const geminiRes = await callGemini(
+    extractionPrompt,
+    [],
+    `Conversation Transcript:\n\n${transcriptText}`,
+    [],
+    'gemini-3.8-flash'
+  );
+
+  const learnedMarkdown = geminiRes.reply;
+  if (!learnedMarkdown || learnedMarkdown.trim().length < 20) {
+    return res.status(500).json({ error: 'Failed to extract meaningful knowledge from this conversation.' });
+  }
+
+  // Insert a new data source record for this learned Q&A
+  const sourceRef = `[Learned Q&A] Session #${convId.slice(0, 8)}`;
+  const dsRes = await query(
+    `INSERT INTO data_sources (agent_id, source_type, source_ref, status)
+     VALUES ($1, 'file', $2, 'pending')
+     RETURNING id`,
+    [agentId, sourceRef]
+  );
+  const dataSourceId = dsRes.rows[0].id;
+
+  // Ingest learned content into vector chunks
+  await processIngestion(agentId, dataSourceId, learnedMarkdown, `Learned Support Q&A (${convId.slice(0, 8)})`);
+
+  return res.json({
+    success: true,
+    message: 'Successfully extracted Q&A and ingested into knowledge base!',
+    dataSourceId,
+    learnedContent: learnedMarkdown
+  });
 }));
 
 export default router;
