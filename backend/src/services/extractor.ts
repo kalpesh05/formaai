@@ -106,8 +106,14 @@ export async function extractTextFromUrl(url: string): Promise<string> {
   }
 
   // Convert cleaned HTML output to readable Markdown format
-  const turndownService = new TurndownService();
-  const markdown = turndownService.turndown(article.content);
+  const cleanHtml = article.content.replace(/<img[^>]*>/gi, '');
+  const turndownService = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+  const markdown = turndownService.turndown(cleanHtml);
+  const cleanMarkdown = markdown
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    .replace(/\[\s*!\[.*?\]\(.*?\)\s*\]\(.*?\)/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
   
-  return `# ${article.title || 'Web Document'}\n\n${markdown}`;
+  return `# ${article.title || 'Web Document'}\n\n[Document Source URL: ${url}]\n\n${cleanMarkdown}`;
 }

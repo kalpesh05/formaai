@@ -114,13 +114,20 @@ export async function crawlDocumentationSite(
       const article = reader.parse();
 
       if (article && article.content && (article.textContent || '').trim().length > 100) {
-        const markdown = turndownService.turndown(article.content);
+        let cleanHtml = article.content.replace(/<img[^>]*>/gi, '');
+        const markdown = turndownService.turndown(cleanHtml);
         const title = article.title || document.title || currentUrl;
+
+        const cleanMarkdown = markdown
+          .replace(/!\[.*?\]\(.*?\)/g, '')
+          .replace(/\[\s*!\[.*?\]\(.*?\)\s*\]\(.*?\)/g, '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
 
         results.push({
           url: currentUrl,
           title: title.trim(),
-          markdown: `# ${title}\n\n[Document URL: ${currentUrl}]\n\n${markdown}`,
+          markdown: `# ${title}\n\n[Document Source URL: ${currentUrl}]\n\n${cleanMarkdown}`,
         });
       }
     } catch (err: any) {

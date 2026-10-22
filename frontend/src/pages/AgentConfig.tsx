@@ -8,7 +8,7 @@ import {
   ArrowLeft, Loader, Copy, Check, Trash2,
   FileUp, X, ShieldCheck, UserCheck, GitPullRequest,
   Database, Activity, Calendar, Ticket, ChevronDown, ChevronUp, SlidersHorizontal,
-  Zap, Cpu, Sparkles, Info
+  Zap, Cpu, Sparkles, Info, MessageSquare
 } from 'lucide-react';
 import Toggle from '../components/ui/Toggle';
 import Badge from '../components/ui/Badge';
@@ -17,6 +17,7 @@ import Alert from '../components/ui/Alert';
 import EvaluationSuite from '../components/agent/EvaluationSuite';
 import CopilotQueue from '../components/agent/CopilotQueue';
 import AutoFixDashboard from '../components/agent/AutoFixDashboard';
+import AgentConversations from '../components/agent/AgentConversations';
 
 export interface ModelOption {
   id: string;
@@ -192,7 +193,7 @@ export default function AgentConfig() {
   const currentWs = workspaces.find(w => w.id === wsId);
   const wsName = currentWs?.client_name || 'Workspace';
 
-  const [activeTab, setActiveTab] = useState<'settings' | 'tools' | 'ingestion' | 'evaluation' | 'copilot' | 'autofix' | 'widget'>('settings');
+  const [activeTab, setActiveTab] = useState<'settings' | 'tools' | 'ingestion' | 'evaluation' | 'copilot' | 'autofix' | 'widget' | 'conversations'>('settings');
   const [agent, setAgent] = useState<Agent | null>(null);
   const [tools, setTools] = useState<Tool[]>([]);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
@@ -583,6 +584,15 @@ export default function AgentConfig() {
           >
             <UserCheck size={18} />
             <span>Support Copilot</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('conversations')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'conversations' ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            <MessageSquare size={18} />
+            <span>Live Conversations</span>
           </button>
           <button
             onClick={() => setActiveTab('autofix')}
@@ -1510,6 +1520,10 @@ export default function AgentConfig() {
                   </form>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'conversations' && (
+              <AgentConversations agentId={agentId!} />
             )}
 
           </div>

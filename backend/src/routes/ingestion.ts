@@ -4,7 +4,7 @@ import { AuthenticatedRequest, authenticateAgency, assertAgentBelongsToAgency } 
 import { query } from '../config/db';
 import { storage } from '../services/storage';
 import { extractTextFromFile, extractTextFromUrl } from '../services/extractor';
-import { processIngestion } from '../services/ingestion';
+import { processIngestion, processPagesIngestion } from '../services/ingestion';
 import { crawlDocumentationSite, CrawledPage } from '../services/crawler';
 
 const router = Router();
@@ -90,7 +90,9 @@ router.post('/agents/:id/data-sources/url', authenticateAgency, asyncHandler(asy
   (async () => {
     try {
       const text = await extractTextFromUrl(url);
-      await processIngestion(agentId, dataSource.id, text);
+      const titleMatch = text.match(/^#\s+(.+)$/m);
+      const docTitle = titleMatch ? `${titleMatch[1].trim()} (${url})` : url;
+      await processIngestion(agentId, dataSource.id, text, docTitle);
     } catch (err: any) {
       console.error(`Background URL ingestion failed for agent ${agentId}, source ${dataSource.id}:`, err.message);
       await query(`UPDATE data_sources SET status = 'failed' WHERE id = $1`, [dataSource.id]);
@@ -133,8 +135,7 @@ router.post('/agents/:id/data-sources/crawl', authenticateAgency, asyncHandler(a
         throw new Error('No crawlable documentation pages discovered under this URL.');
       }
       
-      const aggregatedMarkdown = pages.map((p: CrawledPage) => p.markdown).join('\n\n---\n\n');
-      await processIngestion(agentId, dataSource.id, aggregatedMarkdown, `Documentation: ${rootUrl}`);
+      await processPagesIngestion(agentId, dataSource.id, pages);
     } catch (err: any) {
       console.error(`Background crawl failed for agent ${agentId}, source ${dataSource.id}:`, err.message);
       await query(`UPDATE data_sources SET status = 'failed' WHERE id = $1`, [dataSource.id]);

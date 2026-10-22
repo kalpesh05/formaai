@@ -283,4 +283,131 @@ router.patch('/agent-tools/:toolId', authenticateAgency, asyncHandler(async (req
   return res.json(updateResult.rows[0]);
 }));
 
+// GET /api/v1/agents/:id/conversations - List conversations with message counts and search
+router.get('/agents/:id/conversations', authenticateAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id: agentId } = req.params;
+  const { search, limit = '50' } = req.query;
+  const agencyId = req.agencyId!;
+
+  await assertAgentBelongsToAgency(agentId, agencyId);
+
+  let queryText = `
+    SELECT 
+      c.id,
+      c.end_user_ref,
+      c.created_at,
+      COUNT(m.id)::int as message_count,
+      (
+        SELECT content FROM messages 
+        WHERE conversation_id = c.id 
+        ORDER BY created_at DESC LIMIT 1
+      ) as last_message,
+      (
+        SELECT created_at FROM messages 
+        WHERE conversation_id = c.id 
+        ORDER BY created_at DESC LIMIT 1
+      ) as last_activity
+    FROM conversations c
+    LEFT JOIN messages m ON c.id = m.conversation_id
+    WHERE c.agent_id = $1
+  `;
+  const params: any[] = [agentId];
+
+  if (search && typeof search === 'string' && search.trim()) {
+    params.push(`%${search.trim().toLowerCase()}%`);
+    queryText += ` AND (LOWER(c.end_user_ref) LIKE $${params.length} OR EXISTS (
+      SELECT 1 FROM messages sm 
+      WHERE sm.conversation_id = c.id AND LOWER(sm.content) LIKE $${params.length}
+    ))`;
+  }
+
+  queryText += `
+    GROUP BY c.id
+    ORDER BY COALESCE(
+      (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1),
+      c.created_at
+    ) DESC
+    LIMIT $${params.length + 1}
+  `;
+  params.push(Math.min(parseInt(limit as string, 10) || 50, 100));
+
+  const result = await query(queryText, params);
+  return res.json(result.rows);
+}));
+
+// GET /api/v1/agents/:id/conversations-stats - Conversation volume & interaction metrics
+router.get('/agents/:id/conversations-stats', authenticateAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id: agentId } = req.params;
+  const agencyId = req.agencyId!;
+
+  await assertAgentBelongsToAgency(agentId, agencyId);
+
+  const statsRes = await query(`
+    SELECT 
+      COUNT(DISTINCT c.id)::int as total_conversations,
+      COUNT(m.id)::int as total_messages,
+      ROUND(COALESCE(AVG(sub.cnt), 0), 1) as avg_messages_per_conversation
+    FROM conversations c
+    LEFT JOIN messages m ON c.id = m.conversation_id
+    LEFT JOIN (
+      SELECT conversation_id, COUNT(*) as cnt FROM messages GROUP BY conversation_id
+    ) sub ON sub.conversation_id = c.id
+    WHERE c.agent_id = $1
+  `, [agentId]);
+
+  return res.json(statsRes.rows[0] || { total_conversations: 0, total_messages: 0, avg_messages_per_conversation: 0 });
+}));
+
+// GET /api/v1/agents/:id/conversations/:convId - Get full message transcript
+router.get('/agents/:id/conversations/:convId', authenticateAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id: agentId, convId } = req.params;
+  const agencyId = req.agencyId!;
+
+  await assertAgentBelongsToAgency(agentId, agencyId);
+
+  const convRes = await query(`
+    SELECT c.id, c.end_user_ref, c.created_at, a.name as agent_name, a.template_type
+    FROM conversations c
+    JOIN agents a ON c.agent_id = a.id
+    WHERE c.id = $1 AND c.agent_id = $2
+  `, [convId, agentId]);
+
+  if (convRes.rowCount === 0) {
+    return res.status(404).json({ error: 'Conversation session not found' });
+  }
+
+  const messagesRes = await query(`
+    SELECT id, role, content, created_at
+    FROM messages
+    WHERE conversation_id = $1
+    ORDER BY created_at ASC
+  `, [convId]);
+
+  return res.json({
+    conversation: convRes.rows[0],
+    messages: messagesRes.rows
+  });
+}));
+
+// POST /api/v1/agents/:id/conversations/:convId/reply - Operator manual human reply into session
+router.post('/agents/:id/conversations/:convId/reply', authenticateAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id: agentId, convId } = req.params;
+  const { message } = req.body;
+  const agencyId = req.agencyId!;
+
+  if (!message || !message.trim()) {
+    return res.status(400).json({ error: 'Message content is required' });
+  }
+
+  await assertAgentBelongsToAgency(agentId, agencyId);
+
+  const insertRes = await query(`
+    INSERT INTO messages (conversation_id, role, content)
+    VALUES ($1, 'assistant', $2)
+    RETURNING id, role, content, created_at
+  `, [convId, message.trim()]);
+
+  return res.status(201).json(insertRes.rows[0]);
+}));
+
 export default router;

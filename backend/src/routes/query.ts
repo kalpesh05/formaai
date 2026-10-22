@@ -225,7 +225,20 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
 
     let systemPrompt = basePrompt;
     if (chunksText) {
-      systemPrompt = `${basePrompt}\n\nUse the following retrieved context information from our knowledge base to answer the user query. Do not hallucinate outside this context. Strictly preserve code syntax and formulas. When referring to integrations, documentation, or tools mentioned in the context, always include direct markdown links [Action or Resource Title](url) so users can click or connect immediately.\nContext information:\n---------------------\n${chunksText}\n---------------------\n`;
+      systemPrompt = `${basePrompt}
+
+CRITICAL KNOWLEDGE BASE INSTRUCTIONS (STRICT RAG PROTOCOL):
+You have direct access to verified product documentation and knowledge base chunks below.
+1. DIRECT COMPREHENSIVE ANSWER: Extract the exact steps, facts, explanations, formulas, or features directly from the context and explain them clearly to the user.
+2. DO NOT DEFLECT OR MERELY LINK: Never just say "You can read more here" or "Check this article: [link]". You are the primary support specialist—your duty is to fully explain the answer in conversational, easy-to-understand bullet points or steps directly in your response.
+3. CONTEXT GROUNDING: Ground your entire explanation in the facts provided in the Context Information below. Do not guess or hallucinate details not supported by the documentation.
+4. ACTIONABLE LINKS AS SUPPLEMENT: After providing the full, helpful answer, you may include direct markdown links [Action or Article Title](url) as a helpful next-step or direct button (e.g. [Connect Google Sheets](url) or [Read Full Guide](url)).
+
+Context Information:
+---------------------
+${chunksText}
+---------------------
+`;
     }
 
     if (user_context && typeof user_context === 'object') {

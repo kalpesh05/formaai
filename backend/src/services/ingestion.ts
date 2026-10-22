@@ -72,3 +72,64 @@ export async function processIngestion(
     );
   }
 }
+
+/**
+ * Ingest multiple pages individually, preserving the exact document title and URL
+ * on every chunk so that vector retrieval has precise page-level semantic context.
+ */
+export async function processPagesIngestion(
+  agentId: string,
+  dataSourceId: string,
+  pages: { title: string; markdown: string; url?: string }[]
+): Promise<void> {
+  try {
+    const allChunks: string[] = [];
+
+    for (const page of pages) {
+      if (!page.markdown || !page.markdown.trim()) continue;
+      const pageTitle = page.url ? `${page.title} (${page.url})` : page.title;
+      const chunks = chunkText(page.markdown, 400, 40, pageTitle);
+      allChunks.push(...chunks);
+    }
+
+    if (allChunks.length === 0) {
+      throw new Error('No crawlable text found across discovered pages.');
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const chunk of allChunks) {
+        if (!chunk.trim()) continue;
+        const embedding = await generateEmbedding(chunk);
+        const vectorStr = `[${embedding.join(',')}]`;
+        await client.query(
+          `INSERT INTO chunks (agent_id, data_source_id, content, embedding)
+           VALUES ($1, $2, $3, $4::vector)`,
+          [agentId, dataSourceId, chunk, vectorStr]
+        );
+      }
+
+      await client.query(
+        `UPDATE data_sources SET status = 'processed' WHERE id = $1`,
+        [dataSourceId]
+      );
+
+      await client.query('COMMIT');
+      console.log(`Ingestion succeeded: ${allChunks.length} chunks across ${pages.length} pages for source ${dataSourceId}`);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    console.error(`Pages ingestion pipeline failed for source ${dataSourceId}. Error:`, err.message);
+    await query(
+      `UPDATE data_sources SET status = 'failed' WHERE id = $1`,
+      [dataSourceId]
+    );
+  }
+}
+
