@@ -272,7 +272,8 @@ No verified documentation was retrieved for this specific query.
     const mappedTools = mapAgentTools(toolsResult.rows);
 
     // 8. Invoke the Gemini LLM router with agent's chosen model
-    const activeModel = agent.llm_model || 'gemini-3.8-flash';
+    const rawModel = agent.llm_model || 'gemini-1.5-flash';
+    const activeModel = rawModel.startsWith('gemini-3') ? 'gemini-1.5-flash' : rawModel;
     let routerResponse = await callGemini(
       systemPrompt,
       chatHistory,

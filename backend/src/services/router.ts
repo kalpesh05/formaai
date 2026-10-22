@@ -106,13 +106,17 @@ export async function callGemini(
 
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-  // List candidate models: requested model first, then modern high-availability fallbacks
-  const requestedModel = (modelName && modelName.trim()) ? modelName.trim() : 'gemini-3.8-flash';
+  // Normalize model name and ensure real production Gemini models are used
+  let requestedModel = (modelName && modelName.trim()) ? modelName.trim() : 'gemini-1.5-flash';
+  if (requestedModel.startsWith('gemini-3')) {
+    requestedModel = 'gemini-1.5-flash';
+  }
+
   const candidateModels = [
     requestedModel,
-    'gemini-3.5-flash-lite',
-    'gemini-3.1-pro',
-    'gemini-3.8-flash'
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-pro'
   ].filter((m, idx, arr) => arr.indexOf(m) === idx);
 
   let lastError: any = null;

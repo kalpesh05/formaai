@@ -35,9 +35,9 @@ export interface ModelOption {
 export const PROVIDER_MODELS: Record<string, ModelOption[]> = {
   gemini: [
     {
-      id: 'gemini-3.8-flash',
-      name: 'Gemini 3.8 Flash',
-      badge: 'Recommended · Latest Gen',
+      id: 'gemini-1.5-flash',
+      name: 'Gemini 1.5 Flash',
+      badge: 'Recommended · High Availability',
       badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       speed: '~350ms (Ultra-Low Latency)',
       speedRating: 5,
@@ -47,52 +47,28 @@ export const PROVIDER_MODELS: Record<string, ModelOption[]> = {
       bestFor: '24/7 Live Website Support, Sales Assistants & Lead Qualification'
     },
     {
-      id: 'gemini-3.5-flash-lite',
-      name: 'Gemini 3.5 Flash-Lite',
-      badge: 'Maximum Speed & Volume',
+      id: 'gemini-2.0-flash',
+      name: 'Gemini 2.0 Flash',
+      badge: 'Next-Gen Ultra Speed',
       badgeStyle: 'bg-blue-50 text-blue-700 border-blue-200',
       speed: '~220ms (Instantaneous)',
       speedRating: 5,
-      reasoning: 'Good (Direct FAQ Matching)',
-      cost: 'Budget / High-Throughput',
-      outputDescription: 'Short, punchy, direct answers. Avoids unnecessary conversational filler and resolves user questions in minimum tokens.',
-      bestFor: 'High-volume portals, simple FAQ deflection, and rapid documentation lookups'
+      reasoning: 'Superior (Direct FAQ Matching & Tool Routing)',
+      cost: 'High-Throughput',
+      outputDescription: 'Short, punchy, direct answers. Avoids unnecessary conversational filler and resolves user questions with extreme speed.',
+      bestFor: 'High-volume portals, live websites, and rapid documentation lookups'
     },
     {
-      id: 'gemini-3.1-pro',
-      name: 'Gemini 3.1 Pro',
+      id: 'gemini-1.5-pro',
+      name: 'Gemini 1.5 Pro',
       badge: 'Deep Reasoning & Code',
       badgeStyle: 'bg-purple-50 text-purple-700 border-purple-200',
       speed: '~1.1s (Analytical)',
       speedRating: 3,
-      reasoning: 'Superior (Multi-Step Logic)',
+      reasoning: 'Superior (Multi-Step Logic & Math)',
       cost: 'Standard Pro',
-      outputDescription: 'Highly structured, analytical output with comprehensive explanations. Excels at complex policy synthesis, error diagnostics, and code-level troubleshooting.',
+      outputDescription: 'Highly structured, analytical output with comprehensive explanations. Excels at complex formulas, error diagnostics, and code-level troubleshooting.',
       bestFor: 'Technical support, Auto-Fix code diagnostics, and complex multi-tool workflows'
-    },
-    {
-      id: 'gemini-2.0-flash',
-      name: 'Gemini 2.0 Flash',
-      badge: 'Balanced All-Rounder',
-      badgeStyle: 'bg-slate-100 text-slate-700 border-slate-200',
-      speed: '~500ms (Very Fast)',
-      speedRating: 4,
-      reasoning: 'High',
-      cost: 'Low Cost',
-      outputDescription: 'Balanced conversational tone with good reasoning and reliable tool invocation.',
-      bestFor: 'General customer inquiry bots and standard agency deployments'
-    },
-    {
-      id: 'gemini-1.5-flash',
-      name: 'Gemini 1.5 Flash',
-      badge: 'Legacy Baseline',
-      badgeStyle: 'bg-amber-50 text-amber-700 border-amber-200',
-      speed: '~800ms (Standard)',
-      speedRating: 3,
-      reasoning: 'Standard',
-      cost: 'Baseline',
-      outputDescription: 'Earlier generation architecture. Suitable for backwards-compatibility testing.',
-      bestFor: 'Fallback environments and older API quota allocations'
     }
   ],
   openai: [

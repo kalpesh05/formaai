@@ -451,7 +451,7 @@ Do not add conversational filler or hello/goodbyes. Only output high-value instr
     [],
     `Conversation Transcript:\n\n${transcriptText}`,
     [],
-    'gemini-3.8-flash'
+    'gemini-1.5-flash'
   );
 
   const learnedMarkdown = geminiRes.reply;
