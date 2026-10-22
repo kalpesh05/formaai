@@ -217,7 +217,7 @@ export async function checkFormCreationAllowed(workspaceId: string) {
   if (!usage.modules_access.forms) {
     return {
       allowed: false,
-      error: 'The Forma Form Builder module is not enabled for your current plan or is in private beta.',
+      error: 'The KromaDesk Form Builder module is not enabled for your current plan or is in private beta.',
       code: 'MODULE_LOCKED',
       plan_tier: usage.plan_tier,
     };

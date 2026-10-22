@@ -260,7 +260,7 @@ CREATE INDEX IF NOT EXISTS idx_mailbox_messages_header ON mailbox_messages(messa
 ALTER TABLE copilot_drafts ADD COLUMN IF NOT EXISTS thread_id UUID REFERENCES mailbox_threads(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS idx_copilot_drafts_thread ON copilot_drafts(thread_id);
 
--- Forma AI Forms and Dynamic Data Collection Suite
+-- KromaDesk Forms and Dynamic Data Collection Suite
 CREATE TABLE IF NOT EXISTS forms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_workspace_id UUID NOT NULL REFERENCES client_workspaces(id) ON DELETE CASCADE,
@@ -299,7 +299,7 @@ INSERT INTO platform_settings (key, value)
 VALUES (
   'module_lifecycle',
   '{
-    "forms": { "status": "beta", "min_plan": "growth", "name": "Forma AI Form Builder", "description": "Conversational & classic lead capture forms" },
+    "forms": { "status": "beta", "min_plan": "growth", "name": "KromaDesk Form Builder", "description": "Conversational & classic lead capture forms" },
     "mailbox": { "status": "beta", "min_plan": "business", "name": "Support Mailbox & Copilot", "description": "Email ticketing & AI auto-responder" },
     "tickets": { "status": "beta", "min_plan": "business", "name": "Customer Ticket Helpdesk", "description": "Multi-channel support escalation" },
     "logs": { "status": "internal", "min_plan": "enterprise", "name": "Execution Telemetry & Traces", "description": "Deep LLM request logs and self-healing" }

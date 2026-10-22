@@ -465,11 +465,11 @@ void main() {
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 space-y-8">
             <div>
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand-600 mb-1">
-                <ClipboardList size={14} /> Forma Form Builder &amp; Data Suite
+                <ClipboardList size={14} /> KromaDesk Form Builder &amp; Data Suite
               </div>
               <h2 className="text-xl font-bold text-slate-900">How to Create, Share, and Analyze Forms</h2>
               <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
-                Forma AI includes an agency-grade form builder and lead collection engine. Build forms manually or generate them instantly with Gemini AI, present them in Classic or One-by-One step-through layouts, track respondent locations and timezones silently, and visualize answers with interactive charts and AI qualitative synthesis.
+                KromaDesk includes an agency-grade form builder and lead collection engine. Build forms manually or generate them instantly with Gemini AI, present them in Classic or One-by-One step-through layouts, track respondent locations and timezones silently, and visualize answers with interactive charts and AI qualitative synthesis.
               </p>
             </div>
 
@@ -518,7 +518,7 @@ void main() {
                     Direct Shareable Link (No code required)
                   </div>
                   <p className="text-slate-600 pl-7">
-                    Every form generates a clean, mobile-responsive standalone link hosted directly by your Forma AI instance:
+                    Every form generates a clean, mobile-responsive standalone link hosted directly by your KromaDesk instance:
                   </p>
                   <div className="pl-7">
                     <code className="block bg-slate-900 text-emerald-300 p-2.5 rounded font-mono text-[11px]">
@@ -587,7 +587,7 @@ void main() {
               </div>
               <h2 className="text-xl font-bold text-slate-900">How to Connect and Use the Support Mailbox</h2>
               <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
-                Transform your Forma AI agent from a website widget into a complete customer support email desk. Customer inquiries sent to your official support email (<code className="text-slate-800 bg-slate-100 px-1 py-0.5 rounded">support@yourcompany.com</code>) are automatically parsed, grounded against your RAG knowledge base, and handled according to your policy.
+                Transform your KromaDesk agent from a website widget into a complete customer support email desk. Customer inquiries sent to your official support email (<code className="text-slate-800 bg-slate-100 px-1 py-0.5 rounded">support@yourcompany.com</code>) are automatically parsed, grounded against your RAG knowledge base, and handled according to your policy.
               </p>
             </div>
 
@@ -666,7 +666,7 @@ void main() {
                     <p>You can connect in either of two ways:</p>
                     <ul className="list-disc pl-4 space-y-1">
                       <li>
-                        <strong>Auto-Forwarding (Fastest):</strong> In Google Workspace, Gmail, or Microsoft 365, set an auto-forwarding rule from <code className="text-slate-800 bg-white px-1 py-0.5 rounded border border-slate-200">support@yourcompany.com</code> to your Forma AI inbound forwarding address.
+                        <strong>Auto-Forwarding (Fastest):</strong> In Google Workspace, Gmail, or Microsoft 365, set an auto-forwarding rule from <code className="text-slate-800 bg-white px-1 py-0.5 rounded border border-slate-200">support@yourcompany.com</code> to your KromaDesk inbound forwarding address.
                       </li>
                       <li>
                         <strong>Cloudflare Email Routing (Free):</strong> Route emails from your domain directly to your inbound address with zero server setup.
@@ -721,7 +721,7 @@ AGENCY_ALERT_EMAIL=admin@youragency.com`}
                 Built-in Safeguards &amp; Thread Preservation
               </h4>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Forma AI automatically strips quoted past email history (<code className="text-slate-200">&gt; ...</code>) before vector search so older threads never pollute RAG retrieval. Additionally, bounce notifications (<code className="text-slate-200">mailer-daemon</code>, <code className="text-slate-200">noreply</code>) and automated out-of-office loops are ignored to prevent infinite mail loops. Outbound replies always include proper <code className="text-slate-200">In-Reply-To</code> and <code className="text-slate-200">References</code> headers to keep customer email clients organized in one continuous thread.
+                KromaDesk automatically strips quoted past email history (<code className="text-slate-200">&gt; ...</code>) before vector search so older threads never pollute RAG retrieval. Additionally, bounce notifications (<code className="text-slate-200">mailer-daemon</code>, <code className="text-slate-200">noreply</code>) and automated out-of-office loops are ignored to prevent infinite mail loops. Outbound replies always include proper <code className="text-slate-200">In-Reply-To</code> and <code className="text-slate-200">References</code> headers to keep customer email clients organized in one continuous thread.
               </p>
             </div>
           </div>
@@ -875,7 +875,7 @@ AGENCY_ALERT_EMAIL=admin@youragency.com`}
               <div className="border-b border-slate-100 pb-3">
                 <h4 className="text-xs font-bold text-slate-900">What happens if 1,000 users hit the exact same bug?</h4>
                 <p className="text-xs text-slate-500 mt-1">
-                  Forma AI uses a 15-minute sliding deduplication window based on stack trace fingerprinting. Only one Pull Request is generated to prevent inbox flooding.
+                  KromaDesk uses a 15-minute sliding deduplication window based on stack trace fingerprinting. Only one Pull Request is generated to prevent inbox flooding.
                 </p>
               </div>
 

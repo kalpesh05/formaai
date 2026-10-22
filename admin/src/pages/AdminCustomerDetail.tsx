@@ -726,7 +726,7 @@ export default function AdminCustomerDetail() {
                       <div className="flex items-center gap-2">
                         <ClipboardList size={16} className="text-indigo-600" />
                         <div>
-                          <p className="text-xs font-bold text-slate-900">Forma Form Builder</p>
+                          <p className="text-xs font-bold text-slate-900">KromaDesk Form Builder</p>
                           <p className="text-[10px] text-slate-400">Lead capture &amp; surveys</p>
                         </div>
                       </div>

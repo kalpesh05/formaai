@@ -43,7 +43,7 @@ export default function AdminLogin() {
             <Shield size={32} />
           </div>
           <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-white">
-            Forma AI Master Admin
+            KromaDesk Master Admin
           </h2>
           <p className="mt-1.5 text-xs text-slate-400">
             Internal control tower for platform founders &amp; operators

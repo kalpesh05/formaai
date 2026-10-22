@@ -1,7 +1,7 @@
 {
-  "name": "forma-ai-backend",
+  "name": "kromadesk-backend",
   "version": "1.0.0",
-  "description": "Forma AI Multi-Tenant Backend Service",
+  "description": "KromaDesk Multi-Tenant Backend Service",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",

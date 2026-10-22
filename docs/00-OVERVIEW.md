@@ -1,12 +1,12 @@
-# Forma AI — Documentation Overview
+# KromaDesk — Documentation Overview
 
 **Read this file first.** It orients any developer or AI agent before they open a module-specific doc.
 
 ## What we're building
-Forma AI is a multi-tenant platform where **agencies** manage **multiple client workspaces**, each with its own AI agent that (a) answers questions from the client's own data (RAG) and (b) takes real actions (booking, ticket creation) through connected tools — not just chat.
+KromaDesk is a multi-tenant platform where **agencies** manage **multiple client workspaces**, each with its own AI agent that (a) answers questions from the client's own data (RAG) and (b) takes real actions (booking, ticket creation) through connected tools — not just chat.
 
 ## Why it's different from Chatbase/Botpress/Voiceflow
-Those platforms are single-tenant, Q&A-first chatbot builders. Forma AI is agency-first (one dashboard, many isolated client agents) and action-first (every template does something, not just answers). Full competitive reasoning: see `01-DETAILED-EXPLANATION.md`.
+Those platforms are single-tenant, Q&A-first chatbot builders. KromaDesk is agency-first (one dashboard, many isolated client agents) and action-first (every template does something, not just answers). Full competitive reasoning: see `01-DETAILED-EXPLANATION.md`.
 
 ## Document set
 | File | Purpose | Best for |

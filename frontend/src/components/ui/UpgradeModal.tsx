@@ -48,7 +48,7 @@ export default function UpgradeModal({
       case 'trial_expired':
         return {
           defaultTitle: '14-Day Free Trial Concluded',
-          defaultMessage: `We hope you enjoyed test-driving Forma AI! Choose a plan to re-enable your active chatbot widgets and knowledge base.`,
+          defaultMessage: `We hope you enjoyed test-driving KromaDesk! Choose a plan to re-enable your active chatbot widgets and knowledge base.`,
           recommended: 'Starter ($29/mo) or Growth ($79/mo)',
           perk: 'All your prompt configurations, embeddings, and forms are safely saved.',
         };

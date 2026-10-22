@@ -187,7 +187,7 @@ export default function AutoFixDashboard({ agentId }: AutoFixDashboardProps) {
             </h2>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
               When client issues or Sentry telemetry catch white screens and formula bugs in your 7+ year legacy codebase, 
-              Forma AI diagnoses the root cause, synthesizes an isolated reproduction test, crafts a zero-regression surgical diff, 
+              KromaDesk diagnoses the root cause, synthesizes an isolated reproduction test, crafts a zero-regression surgical diff, 
               and opens a GitHub PR ready for 1-click developer approval.
             </p>
           </div>

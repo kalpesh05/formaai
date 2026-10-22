@@ -124,7 +124,7 @@ FormaMonitor.addBreadcrumb('checkout', 'User clicked proceed to payment');
 try {
   dangerousOperation();
 } catch (err) {
-  // Manually send to Forma AI
+  // Manually send to KromaDesk
   FormaMonitor.captureException(err);
 }
 ```
@@ -133,7 +133,7 @@ try {
 
 ## 5. What Happens When an Error is Reported?
 
-1. **Ingestion & De-duplication:** Forma AI checks if this exact error was reported in the last 15 minutes.
+1. **Ingestion & De-duplication:** KromaDesk checks if this exact error was reported in the last 15 minutes.
 2. **AI Diagnosis (Gemini):** Gemini analyzes the stack trace and the source file.
-3. **Software Factory Fix:** Forma AI generates an automated unit test and a surgical code patch.
+3. **Software Factory Fix:** KromaDesk generates an automated unit test and a surgical code patch.
 4. **GitHub Pull Request:** A ready-to-merge PR is created on the configured GitHub repository!

@@ -409,7 +409,7 @@ export default function AgentConfig() {
 
   const handleCopyWidgetCode = () => {
     if (!agent?.api_key) return;
-    const code = `<!-- 1. Load Widget -->\n<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${agent.id}"\n  data-agent-key="${agent.api_key}">\n</script>\n\n<!-- 2. Pass Authenticated Session Context (Optional) -->\n<script>\n  window.FormaAI && window.FormaAI.identify({\n    userId: "usr_9914",\n    email: "customer@example.com",\n    plan: "Team Pro",\n    currentPage: window.location.pathname\n  });\n</script>`;
+    const code = `<!-- 1. Load Widget -->\n<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${agent.id}"\n  data-agent-key="${agent.api_key}">\n</script>\n\n<!-- 2. Pass Authenticated Session Context (Optional) -->\n<script>\n  window.KromaDesk && window.KromaDesk.identify({\n    userId: "usr_9914",\n    email: "customer@example.com",\n    plan: "Team Pro",\n    currentPage: window.location.pathname\n  });\n</script>`;
     navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -998,7 +998,7 @@ export default function AgentConfig() {
                                   </div>
                                 </div>
                                 <p className="text-[10px] text-slate-400">
-                                  If endpoint is left blank, Forma AI automatically simulates realistic state verification in Sandbox mode.
+                                  If endpoint is left blank, KromaDesk automatically simulates realistic state verification in Sandbox mode.
                                 </p>
                               </div>
                             )}
@@ -1039,7 +1039,7 @@ export default function AgentConfig() {
                                   </div>
                                 </div>
                                 <p className="text-[10px] text-slate-400">
-                                  When Sentry credentials are not configured, Forma AI synthesizes realistic crash traces for white-screen testing.
+                                  When Sentry credentials are not configured, KromaDesk synthesizes realistic crash traces for white-screen testing.
                                 </p>
                               </div>
                             )}
@@ -1323,7 +1323,7 @@ export default function AgentConfig() {
                     <div className="space-y-4">
                       <div className="relative">
                         <pre className="bg-slate-900 text-slate-100 rounded-lg p-3 text-[10px] font-mono overflow-x-auto leading-relaxed border border-slate-950">
-                          {`<!-- 1. Load Widget -->\n<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${agent?.id}"\n  data-agent-key="${agent?.api_key}">\n</script>\n\n<!-- 2. Pass Live Session Context (Optional) -->\n<script>\n  window.FormaAI && window.FormaAI.identify({\n    userId: "usr_9914",\n    email: "customer@example.com",\n    plan: "Team Pro",\n    currentPage: window.location.pathname\n  });\n</script>`}
+                          {`<!-- 1. Load Widget -->\n<script\n  src="${API_HOST}/widget.js"\n  data-agent-id="${agent?.id}"\n  data-agent-key="${agent?.api_key}">\n</script>\n\n<!-- 2. Pass Live Session Context (Optional) -->\n<script>\n  window.KromaDesk && window.KromaDesk.identify({\n    userId: "usr_9914",\n    email: "customer@example.com",\n    plan: "Team Pro",\n    currentPage: window.location.pathname\n  });\n</script>`}
                         </pre>
                         <button
                           onClick={handleCopyWidgetCode}
@@ -1335,7 +1335,7 @@ export default function AgentConfig() {
                       </div>
 
                       <div className="bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-lg p-3 text-xs">
-                        <strong>Live Session Support:</strong> Supports <code>window.FormaAI.identify()</code> for seamless user telemetry and state verification.
+                        <strong>Live Session Support:</strong> Supports <code>window.KromaDesk.identify()</code> for seamless user telemetry and state verification.
                       </div>
                     </div>
                   ) : (

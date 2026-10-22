@@ -67,11 +67,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div>
           {/* Logo */}
           <div className="h-16 flex items-center px-6 bg-slate-950 gap-2.5">
-            <div className="h-8 w-8 rounded bg-brand-500 flex items-center justify-center text-white font-bold text-lg">
-              F
-            </div>
+            <img src="/logo.png" alt="KromaDesk Logo" className="h-8 w-8 rounded-lg object-contain shadow-xs shrink-0" />
             <div className="flex flex-col">
-              <span className="text-lg font-bold text-white tracking-wide leading-none">Forma AI</span>
+              <span className="text-lg font-bold text-white tracking-wide leading-none">KromaDesk</span>
               <span className="text-[10px] text-brand-400 font-bold tracking-wider mt-0.5">ADMIN TOWER</span>
             </div>
           </div>

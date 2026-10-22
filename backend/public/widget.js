@@ -1,13 +1,17 @@
 (function() {
-  // Expose global FormaAI namespace for session context injection
-  window.FormaAI = window.FormaAI || {
+  // Expose global KromaDesk (and legacy FormaAI) namespace for session context injection
+  const kromaDeskNamespace = {
     identify: function(userCtx) {
-      window.__forma_user_context = Object.assign({}, window.__forma_user_context || {}, userCtx);
+      window.__kromadesk_user_context = Object.assign({}, window.__kromadesk_user_context || window.__forma_user_context || {}, userCtx);
+      window.__forma_user_context = window.__kromadesk_user_context;
     },
     setContext: function(ctx) {
-      window.__forma_user_context = Object.assign({}, window.__forma_user_context || {}, ctx);
+      window.__kromadesk_user_context = Object.assign({}, window.__kromadesk_user_context || window.__forma_user_context || {}, ctx);
+      window.__forma_user_context = window.__kromadesk_user_context;
     }
   };
+  window.KromaDesk = window.KromaDesk || kromaDeskNamespace;
+  window.FormaAI = window.FormaAI || window.KromaDesk;
 
   // Capture currentScript reference immediately while synchronous
   const currentScriptRef = document.currentScript;
@@ -33,7 +37,7 @@
       document.querySelector('script[src*="widget.js"]');
 
     if (!script) {
-      console.error('Forma AI Widget: Script tag with data-agent-key not found.');
+      console.error('KromaDesk Widget: Script tag with data-agent-key not found.');
       return;
     }
 
@@ -43,7 +47,7 @@
     const apiHost = (scriptSrc && scriptSrc.startsWith('http')) ? new URL(scriptSrc).origin : '';
 
     if (!agentId || !apiKey) {
-      console.error('Forma AI Widget: Both data-agent-id and data-agent-key are required.');
+      console.error('KromaDesk Widget: Both data-agent-id and data-agent-key are required.');
       return;
     }
 
@@ -511,7 +515,7 @@
             </button>
           </form>
           <div id="fa-footer-badge">
-            <span>Powered by <strong>Forma AI</strong> · 100% Grounded</span>
+            <span>Powered by <strong>KromaDesk</strong> · 100% Grounded</span>
           </div>
         </div>
       </div>
@@ -613,7 +617,7 @@
           sessionStorage.setItem(`fa_conv_${agentId}`, convId);
         }
       } catch (err) {
-        console.error('Forma AI Widget Error:', err);
+        console.error('KromaDesk Widget Error:', err);
         thinkingIndicator.remove();
         appendMessage('bot', 'Sorry, I am having trouble connecting right now. Please try again in a moment.');
       } finally {
@@ -887,7 +891,7 @@
       .then(res => res.json())
       .then(data => {
         if (data && data.autofix_pr_url) {
-          console.log('[Forma AI Auto-Fix] Autonomous PR synthesized:', data.autofix_pr_url);
+          console.log('[KromaDesk Auto-Fix] Autonomous PR synthesized:', data.autofix_pr_url);
           showGlitchNotification(data.autofix_pr_url);
         }
       })

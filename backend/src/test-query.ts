@@ -59,7 +59,7 @@ async function runTests() {
 
     // 3. Inject mock database chunks directly for vector search matching
     console.log('Seeding knowledge base vector chunks...');
-    const chunk1Content = 'Forma AI monthly billing rates start at $49 per month for the basic tier. The professional tier is priced at $199 per month.';
+    const chunk1Content = 'KromaDesk monthly billing rates start at $49 per month for the basic tier. The professional tier is priced at $199 per month.';
     const chunk2Content = 'The system supports multi-tenant workspace isolation. Each agency workspace has an independent database scoping layer.';
 
     const embed1 = await generateEmbedding(chunk1Content);
@@ -88,7 +88,7 @@ async function runTests() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${tokenA}`
       },
-      body: JSON.stringify({ message: 'What are the billing plans for Forma AI?' })
+      body: JSON.stringify({ message: 'What are the billing plans for KromaDesk?' })
     });
 
     if (!query1Res.ok) {

@@ -1,4 +1,4 @@
-# Forma AI — Agent Task Assignments
+# KromaDesk — Agent Task Assignments
 
 Each section below is written to be copy-pasted directly to one individual developer or AI coding agent (e.g., a separate Claude Code session). All agents must build against the shared contracts in `03-LOW-LEVEL-ARCHITECTURE.md` — do not deviate from the schema or API shapes without flagging it to whoever owns integration.
 

@@ -23,7 +23,7 @@ export async function parseSitemapUrls(sitemapUrl: string, maxUrls = 50): Promis
     const res = await fetch(sitemapUrl, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; FormaAI-Crawler/1.0; +https://forma.ai)',
+        'User-Agent': 'Mozilla/5.0 (compatible; KromaDesk-Crawler/1.0; +https://kromadesk.ai)',
         'Accept': 'application/xml, text/xml, application/xhtml+xml, text/html, */*'
       }
     });
@@ -136,7 +136,7 @@ export async function crawlDocumentationSite(
       const response = await fetch(currentUrl, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; FormaAI-Crawler/1.0; +https://forma.ai)',
+          'User-Agent': 'Mozilla/5.0 (compatible; KromaDesk-Crawler/1.0; +https://kromadesk.ai)',
           'Accept': 'text/html,application/xhtml+xml',
         },
       });

@@ -1,4 +1,4 @@
-# Forma AI — High-Level Architecture
+# KromaDesk — High-Level Architecture
 
 ## 1. System diagram
 

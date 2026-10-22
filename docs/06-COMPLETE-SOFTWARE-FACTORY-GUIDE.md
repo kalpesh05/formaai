@@ -1,4 +1,4 @@
-# Forma AI — The Complete Autonomous Software Factory Guide
+# KromaDesk — The Complete Autonomous Software Factory Guide
 ### The Unified System for Monitoring, AI Beta Testing, Auto-Remediation, and Customer Support
 
 ---
@@ -31,7 +31,7 @@ Most software tools are fragmented:
 * You hire **developers** to spend hours reproducing and writing fixes.
 * You use **Intercom** to apologize to customers when the app breaks.
 
-**Forma AI combines all four into one unified, self-healing closed loop:**
+**KromaDesk combines all four into one unified, self-healing closed loop:**
 
 ```
                ┌────────────────────────────────────────────────────────┐
@@ -70,7 +70,7 @@ Most software tools are fragmented:
 > *"I don't know deep coding. I just want my web or desktop app to not crash, and if it does, I want it fixed without hiring a dev agency."*
 
 #### Your 3-Minute Setup:
-1. **Get your Agency Key & Agent ID** from the Forma Dashboard.
+1. **Get your Agency Key & Agent ID** from the KromaDesk Dashboard.
 2. **Copy & Paste 1 script tag** into your app's `index.html`:
    ```html
    <script 
@@ -80,7 +80,7 @@ Most software tools are fragmented:
    </script>
    ```
 3. **Connect your GitHub repository** in the dashboard settings.
-4. **Done!** Whenever any user experiences a white-screen or button failure, Forma AI creates a Pull Request on your GitHub repo with the fix. You or your developer just click **"Merge"**.
+4. **Done!** Whenever any user experiences a white-screen or button failure, KromaDesk creates a Pull Request on your GitHub repo with the fix. You or your developer just click **"Merge"**.
 
 ---
 
@@ -112,7 +112,7 @@ Most software tools are fragmented:
       "autoFix": true
     }'
   ```
-* **Git Isolation:** Forma AI creates atomic branches (`fix/fa-<timestamp>-<file>`), writes an isolated test file, and posts complete PR markdown descriptions with reproduction proof.
+* **Git Isolation:** KromaDesk creates atomic branches (`fix/fa-<timestamp>-<file>`), writes an isolated test file, and posts complete PR markdown descriptions with reproduction proof.
 
 ---
 
@@ -173,7 +173,7 @@ Most software tools are fragmented:
 
 1. **The Scenario:** A user on a SaaS app clicks "Export Report" before selecting any date range.
 2. **The Crash:** The browser throws `TypeError: Cannot read properties of undefined (reading 'startDate') at ReportGenerator.js:48`.
-3. **What Forma AI does:**
+3. **What KromaDesk does:**
    * `forma-monitor.js` intercepts the error and dispatches the stack trace to the backend.
    * Gemini analyzes the code:
      ```javascript
@@ -241,7 +241,7 @@ Most software tools are fragmented:
 **A:** The SDK caches recent error breadcrumbs in memory. When the app regains connectivity, telemetry is dispatched cleanly.
 
 #### Q: Do I need a paid Gemini API key to run this?
-**A:** Forma AI includes built-in mock fallbacks for local offline development. When you are ready for production, plug in your `GEMINI_API_KEY` in `.env` to unlock real-time code synthesis and vision testing.
+**A:** KromaDesk includes built-in mock fallbacks for local offline development. When you are ready for production, plug in your `GEMINI_API_KEY` in `.env` to unlock real-time code synthesis and vision testing.
 
 #### Q: How do I test the entire flow right now?
 **A:** Run the pre-packaged verification suite:

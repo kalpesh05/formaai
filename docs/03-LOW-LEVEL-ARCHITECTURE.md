@@ -1,4 +1,4 @@
-# Forma AI — Low-Level Architecture
+# KromaDesk — Low-Level Architecture
 
 **This is the shared source of truth.** Any agent building against this system must match these contracts exactly. If a change is needed, flag it to whoever owns integration before diverging.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Forma AI - Local Enterprise Knowledge Extractor (CLI)
+ * KromaDesk - Local Enterprise Knowledge Extractor (CLI)
  * 
  * Run this script locally inside ANY private codebase to generate a sanitized,
  * customer-safe Knowledge Base document WITHOUT sharing private source code or Git tokens.
@@ -10,14 +10,14 @@
  *   node extract-knowledge.js [path-to-repo]
  * 
  * Output:
- *   ./forma-knowledge-base.md (Ready to upload to Forma AI)
+ *   ./kromadesk-knowledge-base.md (Ready to upload to KromaDesk)
  */
 
 const fs = require('fs');
 const path = require('path');
 
 const repoPath = process.argv[2] ? path.resolve(process.argv[2]) : process.cwd();
-console.log(`\n🛡️  [Forma AI Local Extractor] Scanning: ${repoPath}`);
+console.log(`\n🛡️  [KromaDesk Local Extractor] Scanning: ${repoPath}`);
 console.log(`🔒  100% Local Execution: No private code or secrets leave this machine.\n`);
 
 const knowledgeSections = [];
@@ -100,11 +100,11 @@ if (routeSummaries.length > 0) {
 if (knowledgeSections.length === 0) {
   console.log('⚠️  No README, docs, schemas, or routes discovered in this folder.');
 } else {
-  const outputPath = path.join(process.cwd(), 'forma-knowledge-base.md');
-  const fileHeader = `<!--\nForma AI - Sanitized Knowledge Base Export\nGenerated: ${new Date().toISOString()}\nTarget: ${path.basename(repoPath)}\n-->\n\n`;
+  const outputPath = path.join(process.cwd(), 'kromadesk-knowledge-base.md');
+  const fileHeader = `<!--\nKromaDesk - Sanitized Knowledge Base Export\nGenerated: ${new Date().toISOString()}\nTarget: ${path.basename(repoPath)}\n-->\n\n`;
   fs.writeFileSync(outputPath, fileHeader + knowledgeSections.join('\n\n---\n\n'), 'utf8');
 
   console.log(`\n🎉  SUCCESS! Sanitized knowledge export generated:`);
   console.log(`📁  ${outputPath}`);
-  console.log(`\n👉  Next step: Inspect this file, then upload it directly in Forma AI (Knowledge Base > Upload Code, Schemas & Docs).`);
+  console.log(`\n👉  Next step: Inspect this file, then upload it directly in KromaDesk (Knowledge Base > Upload Code, Schemas & Docs).`);
 }

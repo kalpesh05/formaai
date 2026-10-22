@@ -38,7 +38,7 @@ export default function Pricing() {
     },
     {
       q: 'What are "Beta Add-ons" and how do I get access?',
-      a: 'Forma AI is primarily an AI Chatbot & Agent platform. Extended features like Support Mailbox and Form Builder are currently in Early Access Beta. You can request access or be granted testing access directly from the platform administrator.',
+      a: 'KromaDesk is primarily an AI Chatbot & Agent platform. Extended features like Support Mailbox and Form Builder are currently in Early Access Beta. You can request access or be granted testing access directly from the platform administrator.',
     },
     {
       q: 'Can I switch between monthly and annual billing?',
@@ -179,7 +179,7 @@ export default function Pricing() {
                     <div className="flex items-start gap-2 text-xs text-slate-600 pt-1">
                       <Check size={14} className="text-indigo-500 shrink-0 mt-0.5" />
                       <span>
-                        Forma Forms{' '}
+                         KromaDesk Forms{' '}
                         {liveModules.forms?.status === 'beta' ? (
                           <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded ml-1">
                             BETA
@@ -290,14 +290,14 @@ export default function Pricing() {
                 <td className="py-3 px-4 text-center text-emerald-600 font-bold">Included</td>
               </tr>
               <tr>
-                <td className="py-3 px-4 font-semibold text-slate-900">Remove "Powered by Forma"</td>
+                <td className="py-3 px-4 font-semibold text-slate-900">Remove "Powered by KromaDesk"</td>
                 <td className="py-3 px-4 text-center text-slate-300">—</td>
                 <td className="py-3 px-4 text-center text-slate-300">—</td>
                 <td className="py-3 px-4 text-center text-emerald-600 font-bold">Full White-Label</td>
                 <td className="py-3 px-4 text-center text-emerald-600 font-bold">Full White-Label</td>
               </tr>
               <tr>
-                <td className="py-3 px-4 font-semibold text-slate-900">Forma AI Form Builder</td>
+                <td className="py-3 px-4 font-semibold text-slate-900">KromaDesk Form Builder</td>
                 <td className="py-3 px-4 text-center text-slate-300">—</td>
                 <td className="py-3 px-4 text-center text-emerald-600 font-bold">5 Forms (Beta)</td>
                 <td className="py-3 px-4 text-center text-emerald-600 font-bold">Unlimited</td>

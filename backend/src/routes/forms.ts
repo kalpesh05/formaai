@@ -318,7 +318,7 @@ router.post(
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-      const systemInstruction = `You are an expert UX and Form Design Architect for Forma AI SaaS.
+      const systemInstruction = `You are an expert UX and Form Design Architect for KromaDesk SaaS.
 Given a user's request, create a clean, modern form with the optimal fields.
 Valid field types:
 - 'short_text' (for single-line text like names, titles)

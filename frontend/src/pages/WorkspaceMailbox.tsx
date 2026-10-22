@@ -583,7 +583,7 @@ export default function WorkspaceMailbox() {
                         ) : (
                           <>
                             <span className="font-medium text-slate-700">
-                              {m.sender_name || 'Support Agent'} {m.ai_generated && '(Forma AI)'}
+                              {m.sender_name || 'Support Agent'} {m.ai_generated && '(KromaDesk)'}
                             </span>
                             <Bot size={12} className="text-brand-600" />
                           </>

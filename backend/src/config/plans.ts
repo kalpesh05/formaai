@@ -26,7 +26,7 @@ export const PLANS: Record<string, PlanDefinition> = {
   trial: {
     id: 'trial',
     name: '14-Day Free Trial',
-    tagline: 'Experience the full power of Forma AI risk-free',
+    tagline: 'Experience the full power of KromaDesk risk-free',
     monthlyPrice: 0,
     yearlyMonthlyPrice: 0,
     maxAgents: 1,
@@ -109,7 +109,7 @@ export const DEFAULT_MODULE_LIFECYCLE: GlobalModules = {
   forms: {
     status: 'beta',
     min_plan: 'growth',
-    name: 'Forma AI Form Builder',
+    name: 'KromaDesk Form Builder',
     description: 'Conversational & classic lead capture forms',
   },
   mailbox: {

@@ -40,12 +40,10 @@ export default function Signup() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-md border border-slate-100">
         <div>
           <div className="flex justify-center">
-            <div className="h-12 w-12 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold text-2xl shadow-sm">
-              F
-            </div>
+            <img src="/logo.png" alt="KromaDesk" className="h-14 w-14 rounded-2xl object-contain shadow-md" />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900">
-            Forma AI
+            KromaDesk
           </h2>
           <p className="mt-2 text-center text-sm text-slate-500">
             Start managing client AI chatbots in minutes

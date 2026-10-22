@@ -59,7 +59,7 @@ export default function PlanBanner() {
             <Clock size={12} /> {usage.trial_days_remaining} Days Remaining
           </span>
           <span className="text-slate-300">
-            You're currently exploring Forma AI on the <strong>14-Day All-Access Trial</strong> ({usage.messages.current} / {usage.messages.limit} test messages used).
+            You're currently exploring KromaDesk on the <strong>14-Day All-Access Trial</strong> ({usage.messages.current} / {usage.messages.limit} test messages used).
           </span>
         </div>
         <button

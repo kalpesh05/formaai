@@ -58,7 +58,7 @@ export async function executeTool(
             start: startDate.toISOString(),
             end: endDate.toISOString(),
             responses: {
-              name: 'Forma AI Customer',
+              name: 'KromaDesk Customer',
               email: attendee_email
             },
             timeZone: 'UTC'
@@ -127,7 +127,7 @@ export async function executeTool(
           });
 
           await transporter.sendMail({
-            from: `"Forma AI Agent" <${SMTP_USER}>`,
+            from: `"KromaDesk Agent" <${SMTP_USER}>`,
             to: AGENCY_ALERT_EMAIL,
             subject: `[TICKET ALERT] Support Ticket #${ticket.id} Opened`,
             text: `A new support ticket has been filed by the support agent.\n\nTicket Details:\nID: ${ticket.id}\nSubject: ${subject}\nDescription: ${description}\nCreated At: ${ticket.created_at}\n\nPlease check the dashboard to resolve this escalation.`

@@ -1,11 +1,11 @@
-# Forma AI — Detailed Explanation
+# KromaDesk — Detailed Explanation
 
 ## 1. The problem
 Agencies and freelancers rebuild similar RAG/chatbot infrastructure for every client. Existing tools (Chatbase, Botpress, Voiceflow) are built for a single business managing one bot — not for an agency managing many clients' agents from one place. None of them are action-first: most are Q&A tools with actions bolted on.
 
 ## 2. Who uses this
 - **Agency admin** — signs up, creates client workspaces, configures agents per client, views action logs, sets white-label branding
-- **Client's end users** — interact with the deployed widget/API, never see the Forma AI dashboard
+- **Client's end users** — interact with the deployed widget/API, never see the KromaDesk dashboard
 - (Later phases) Direct SMB self-serve users, mid-size B2B teams
 
 ## 3. Core user flow (v1)

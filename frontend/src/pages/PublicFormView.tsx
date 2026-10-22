@@ -434,7 +434,7 @@ export default function PublicFormView() {
           {form.settings.show_forma_badge && (
             <div className="pt-6 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
               <span>⚡ Powered by</span>
-              <span className="font-bold text-slate-600">Forma AI</span>
+              <span className="font-bold text-slate-600">KromaDesk</span>
             </div>
           )}
         </div>
@@ -541,7 +541,7 @@ export default function PublicFormView() {
           {form.settings.show_forma_badge && (
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] text-slate-500 shadow-2xs">
               <span>⚡ Powered by</span>
-              <span className="font-bold text-slate-700">Forma AI</span>
+              <span className="font-bold text-slate-700">KromaDesk</span>
             </div>
           )}
         </footer>
@@ -599,12 +599,12 @@ export default function PublicFormView() {
           </form>
         </div>
 
-        {/* Subtle Forma White-label Badge */}
+        {/* Subtle KromaDesk White-label Badge */}
         {form.settings.show_forma_badge && (
           <div className="text-center">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-200 text-[10px] text-slate-500 shadow-2xs">
               <span>⚡ Powered by</span>
-              <span className="font-bold text-slate-700">Forma AI</span>
+              <span className="font-bold text-slate-700">KromaDesk</span>
             </div>
           </div>
         )}

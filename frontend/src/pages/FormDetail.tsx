@@ -814,7 +814,7 @@ export default function FormDetail() {
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-xs text-slate-700 font-medium">Show Forma AI badge</span>
+                  <span className="text-xs text-slate-700 font-medium">Show KromaDesk badge</span>
                   <input
                     type="checkbox"
                     checked={form.settings.show_forma_badge !== false}
@@ -1072,7 +1072,7 @@ export default function FormDetail() {
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      Forma AI Qualitative Insights
+                      KromaDesk Qualitative Insights
                     </h3>
                     <p className="text-xs text-slate-400">
                       Gemini reads open-ended customer feedback and synthesizes sentiment &amp; patterns

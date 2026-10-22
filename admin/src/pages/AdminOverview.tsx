@@ -906,7 +906,7 @@ export default function AdminOverview() {
               <Button
                 type="button"
                 onClick={() => {
-                  const msg = `Hello ${createdCredentials.client_name} Team,\n\nYour Forma AI assistant workspace is set up and ready!\n\nYou can log in to view your bot, test conversations, and manage leads:\n\n• Login URL: ${window.location.origin}/login\n• Email: ${createdCredentials.email}\n• Temporary Password: ${createdCredentials.temp_password}\n\nPlease change your temporary password under your account profile after logging in.`;
+                  const msg = `Hello ${createdCredentials.client_name} Team,\n\nYour KromaDesk assistant workspace is set up and ready!\n\nYou can log in to view your bot, test conversations, and manage leads:\n\n• Login URL: ${window.location.origin}/login\n• Email: ${createdCredentials.email}\n• Temporary Password: ${createdCredentials.temp_password}\n\nPlease change your temporary password under your account profile after logging in.`;
                   navigator.clipboard.writeText(msg);
                   setCopiedWelcome(true);
                   setTimeout(() => setCopiedWelcome(false), 2000);

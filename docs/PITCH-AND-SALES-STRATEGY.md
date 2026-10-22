@@ -1,12 +1,12 @@
-# Forma AI — Reseller Pitch & Sales Strategy
+# KromaDesk — Reseller Pitch & Sales Strategy
 
-This document details the sales strategy, target audience, pricing models, and cold outreach templates to successfully commercialize and resell the **Forma AI** white-label multi-tenant platform.
+This document details the sales strategy, target audience, pricing models, and cold outreach templates to successfully commercialize and resell the **KromaDesk** white-label multi-tenant platform.
 
 ---
 
 ## 1. Value Proposition
 
-Forma AI is built for **Digital Marketing Agencies** and **SaaS Creators** who want to resell custom AI chatbots as a high-margin service to their portfolio of client websites. 
+KromaDesk is built for **Digital Marketing Agencies** and **SaaS Creators** who want to resell custom AI chatbots as a high-margin service to their portfolio of client websites. 
 
 ### Core Product Strengths:
 1. **White-Label Scoping Layer:** Agencies get a dashboard to launch and isolate distinct brand widgets under separate client workspaces.
@@ -43,7 +43,7 @@ Agencies can market this product in two primary formats:
 >
 > Many agencies are currently losing out on recurring retention revenue because after building a client site, there is no ongoing software upsell.
 >
-> We built a white-label AI Chatbot Platform called **Forma AI**. It allows you to:
+> We built a white-label AI Chatbot Platform called **KromaDesk**. It allows you to:
 > 1. Launch isolated client workspaces under your own agency brand.
 > 2. Scrape help docs or FAQ pages into vector embeddings in seconds.
 > 3. Deploy customized sales/support widgets that automatically book calls (via Cal.com/Google Calendar) or log support tickets.

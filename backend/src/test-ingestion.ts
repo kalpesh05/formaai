@@ -114,7 +114,7 @@ async function runTests() {
     // 3. Test File Ingestion using Native FormData & Blob
     console.log('Uploading sample document file...');
     const formData = new FormData();
-    const fileContent = 'Forma AI offers custom workspace solutions. Agencies can manage multiple clients in this single dashboard. Each client has a dedicated agent to assist users with support and sales requests. Support tickets are automatically logged into the central client system.';
+    const fileContent = 'KromaDesk offers custom workspace solutions. Agencies can manage multiple clients in this single dashboard. Each client has a dedicated agent to assist users with support and sales requests. Support tickets are automatically logged into the central client system.';
     
     // Create a text file blob
     const blob = new Blob([fileContent], { type: 'text/plain' });

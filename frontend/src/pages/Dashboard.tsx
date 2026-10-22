@@ -184,7 +184,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-white tracking-wide">
-                      Forma AI Chatbot &amp; Agent Studio
+                      KromaDesk Chatbot &amp; Agent Studio
                     </h2>
                     <p className="text-xs text-slate-400">
                       Your 4-step workflow to launch a custom 24/7 AI chatbot on your website

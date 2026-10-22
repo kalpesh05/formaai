@@ -154,11 +154,11 @@ export async function callGemini(
         lastError = err;
         const isTransient = err.message?.includes('503') || err.message?.includes('high demand') || err.message?.includes('429');
         if (isTransient && attempt === 0) {
-          console.warn(`[Forma AI] Gemini model '${candidate}' hit transient spike (${err.message}). Retrying in 800ms...`);
+          console.warn(`[KromaDesk] Gemini model '${candidate}' hit transient spike (${err.message}). Retrying in 800ms...`);
           await new Promise(res => setTimeout(res, 800));
           continue;
         }
-        console.warn(`[Forma AI] Gemini model '${candidate}' invocation failed: ${err.message}. Trying next candidate...`);
+        console.warn(`[KromaDesk] Gemini model '${candidate}' invocation failed: ${err.message}. Trying next candidate...`);
         break;
       }
     }
