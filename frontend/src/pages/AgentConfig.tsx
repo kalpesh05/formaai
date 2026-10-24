@@ -35,40 +35,112 @@ export interface ModelOption {
 export const PROVIDER_MODELS: Record<string, ModelOption[]> = {
   gemini: [
     {
-      id: 'gemini-1.5-flash',
-      name: 'Gemini 1.5 Flash',
-      badge: 'Recommended · High Availability',
+      id: 'gemini-3.8-flash',
+      name: 'Gemini 3.8 Flash',
+      badge: 'Recommended · Frontier Agentic Workhorse',
       badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      speed: '~350ms (Ultra-Low Latency)',
+      speed: '~200ms (Ultra-Low Latency)',
       speedRating: 5,
-      reasoning: 'High (Grounding & Tool Calling)',
-      cost: 'Lowest Cost per Token',
-      outputDescription: 'Natural, crisp responses with tight context adherence. Follows system prompt guidelines strictly and triggers tools with 99%+ accuracy.',
-      bestFor: '24/7 Live Website Support, Sales Assistants & Lead Qualification'
+      reasoning: 'High (Grounding & Native Tool Calling)',
+      cost: 'Cost-Effective Baseline',
+      outputDescription: 'Ultra-fast general purpose and agentic workhorse. Grounded responses, strict prompt adherence, and native tool execution.',
+      bestFor: '24/7 Live Website Support, Sales Assistants, Lead Qualification & Real-Time Tool Calling'
     },
     {
-      id: 'gemini-2.0-flash',
-      name: 'Gemini 2.0 Flash',
-      badge: 'Next-Gen Ultra Speed',
+      id: 'gemini-4-argon',
+      name: 'Gemini 4 Argon',
+      badge: 'Frontier Flagship Reasoning',
+      badgeStyle: 'bg-purple-50 text-purple-700 border-purple-200',
+      speed: '~800ms (Deep Analytical)',
+      speedRating: 4,
+      reasoning: 'Superior (Frontier Logic & Architecture)',
+      cost: 'Enterprise Flagship',
+      outputDescription: 'Google\'s frontier reasoning and agentic flagship model. Excels at complex multi-step reasoning, architectural planning, and deep code synthesis.',
+      bestFor: 'Autonomous engineering agents, Auto-Fix code diagnostics, and complex multi-tool workflows'
+    },
+    {
+      id: 'gemini-3.6-flash',
+      name: 'Gemini 3.6 Flash',
+      badge: 'High-Throughput Multimodal',
       badgeStyle: 'bg-blue-50 text-blue-700 border-blue-200',
       speed: '~220ms (Instantaneous)',
       speedRating: 5,
-      reasoning: 'Superior (Direct FAQ Matching & Tool Routing)',
+      reasoning: 'High (Multimodal Baseline)',
       cost: 'High-Throughput',
-      outputDescription: 'Short, punchy, direct answers. Avoids unnecessary conversational filler and resolves user questions with extreme speed.',
+      outputDescription: 'High-throughput multimodal baseline model with low latency and balanced reasoning for high-volume deployments.',
       bestFor: 'High-volume portals, live websites, and rapid documentation lookups'
     },
     {
-      id: 'gemini-1.5-pro',
-      name: 'Gemini 1.5 Pro',
-      badge: 'Deep Reasoning & Code',
-      badgeStyle: 'bg-purple-50 text-purple-700 border-purple-200',
-      speed: '~1.1s (Analytical)',
-      speedRating: 3,
-      reasoning: 'Superior (Multi-Step Logic & Math)',
+      id: 'gemini-3.5-flash',
+      name: 'Gemini 3.5 Flash',
+      badge: 'Balanced Agentic Tier',
+      badgeStyle: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      speed: '~260ms (Fast)',
+      speedRating: 5,
+      reasoning: 'High (Balanced Multimodal)',
+      cost: 'Standard Economy',
+      outputDescription: 'Balanced multimodal agentic tier delivering reliable tool-calling and document search.',
+      bestFor: 'Customer support, email mailbox auto-drafting, and ticket triaging'
+    },
+    {
+      id: 'gemini-3.5-flash-lite',
+      name: 'Gemini 3.5 Flash Lite',
+      badge: 'Ultra-Low Cost & High-Frequency',
+      badgeStyle: 'bg-amber-50 text-amber-700 border-amber-200',
+      speed: '~140ms (Lightning)',
+      speedRating: 5,
+      reasoning: 'Optimized (Low-Token Deflection)',
+      cost: 'Lowest Cost per Token',
+      outputDescription: 'Optimized for high-frequency, low-token processing. Direct answers with minimal latency and ultra-low compute footprint.',
+      bestFor: 'High-frequency FAQ lookup, quick intent classification, and instant lead triage'
+    },
+    {
+      id: 'gemini-3.1-pro-preview',
+      name: 'Gemini 3.1 Pro Preview',
+      badge: 'Specialized Preview Engine',
+      badgeStyle: 'bg-violet-50 text-violet-700 border-violet-200',
+      speed: '~850ms (Specialized Engine)',
+      speedRating: 4,
+      reasoning: 'Superior (Deep Logic & Code Benchmarks)',
       cost: 'Standard Pro',
-      outputDescription: 'Highly structured, analytical output with comprehensive explanations. Excels at complex formulas, error diagnostics, and code-level troubleshooting.',
-      bestFor: 'Technical support, Auto-Fix code diagnostics, and complex multi-tool workflows'
+      outputDescription: 'Highly specialized preview engine for deep logic, complex regex, coding benchmarks, and test generation.',
+      bestFor: 'QA test suite generation, Auto-Fix code diagnostics, and technical developer support'
+    },
+    {
+      id: 'gemini-3.1-flash-lite',
+      name: 'Gemini 3.1 Flash Lite',
+      badge: 'Cost-Effective Baseline',
+      badgeStyle: 'bg-teal-50 text-teal-700 border-teal-200',
+      speed: '~170ms (Fast)',
+      speedRating: 5,
+      reasoning: 'Standard',
+      cost: 'Cost-Effective Baseline',
+      outputDescription: 'Cost-effective baseline engine for rapid high-volume question answering and structured queries.',
+      bestFor: 'Budget-friendly support widgets and routine FAQ answers'
+    },
+    {
+      id: 'gemini-2.5-pro',
+      name: 'Gemini 2.5 Pro',
+      badge: 'Legacy Retained',
+      badgeStyle: 'bg-slate-100 text-slate-700 border-slate-300',
+      speed: '~1.0s (Analytical)',
+      speedRating: 3,
+      reasoning: 'High (Legacy Workflow)',
+      cost: 'Legacy Tier',
+      outputDescription: 'Retained legacy model for existing customer workflows requiring previous-generation response behavior.',
+      bestFor: 'Existing customer workflows and legacy consistency'
+    },
+    {
+      id: 'gemini-2.5-flash',
+      name: 'Gemini 2.5 Flash',
+      badge: 'Legacy Retained',
+      badgeStyle: 'bg-slate-100 text-slate-700 border-slate-300',
+      speed: '~320ms (Standard)',
+      speedRating: 4,
+      reasoning: 'Moderate (Legacy Workflow)',
+      cost: 'Legacy Tier',
+      outputDescription: 'Retained legacy model for existing customer workflows requiring previous-generation response behavior.',
+      bestFor: 'Existing customer workflows and legacy consistency'
     }
   ],
   openai: [
@@ -183,7 +255,7 @@ export default function AgentConfig() {
   // Settings inputs
   const [name, setName] = useState('');
   const [provider, setProvider] = useState('gemini');
-  const [model, setModel] = useState('gemini-1.5-flash');
+  const [model, setModel] = useState('gemini-3.8-flash');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [temperature, setTemperature] = useState(0.7);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.50);

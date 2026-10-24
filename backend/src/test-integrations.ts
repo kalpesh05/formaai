@@ -23,7 +23,7 @@ async function runTests() {
   const wsId = wsInsert.rows[0].id;
   const agentInsert = await query(
     `INSERT INTO agents (client_workspace_id, template_type, name, llm_provider, llm_model, status)
-     VALUES ($1, 'support', 'Integration Agent', 'gemini', 'gemini-1.5-flash', 'draft') RETURNING id`,
+     VALUES ($1, 'support', 'Integration Agent', 'gemini', 'gemini-3.8-flash', 'draft') RETURNING id`,
     [wsId]
   );
   const agentId = agentInsert.rows[0].id;

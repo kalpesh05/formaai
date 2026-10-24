@@ -30,7 +30,7 @@ KromaDesk is a production-ready, white-label, multi-tenant AI Chatbot SaaS platf
 
 ## 🛠️ Tech Stack
 
-* **Backend:** Node.js, Express, TypeScript, PG Vector (`pgvector/pgvector:pg16` Docker Image), Nodemailer, Cal.com API, Google Generative AI SDK (`gemini-1.5-flash`).
+* **Backend:** Node.js, Express, TypeScript, PG Vector (`pgvector/pgvector:pg16` Docker Image), Nodemailer, Cal.com API, Google Generative AI SDK (`gemini-3.8-flash`).
 * **Frontend:** React, Vite, TypeScript, Tailwind CSS, Lucide icons, React Router DOM.
 * **Deployments:** Multi-stage Docker configurations, Nginx routing servers, and Docker Compose orchestration.
 

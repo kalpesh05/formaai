@@ -68,7 +68,7 @@ Target File: ${targetFile}`;
   let patchDiff = '';
 
   try {
-    const aiResponse = await callGemini(systemPrompt, [], userPrompt, [], 'gemini-3.1-pro');
+    const aiResponse = await callGemini(systemPrompt, [], userPrompt, [], 'gemini-3.1-pro-preview');
     const cleanReply = (aiResponse.reply || '').replace(/```json\n?|\n?```/g, '').trim();
     const parsed = JSON.parse(cleanReply);
     reproductionTest = parsed.reproduction_test;

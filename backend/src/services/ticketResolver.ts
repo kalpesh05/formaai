@@ -132,7 +132,7 @@ export async function resolveTicketWithAgent(options: ResolveTicketOptions): Pro
       const systemPrompt = TEMPLATES.qa_tester.config.systemPrompt;
       const prompt = `Review the following ticket and generate a complete automated test suite (Jest/Vitest) that covers all edge cases and regression scenarios.\n\nTicket Subject: ${ticket.subject}\nDetails: ${ticket.description}`;
       
-      const aiResponse = await callGemini(systemPrompt, [], prompt, [], targetAgent.llm_model || 'gemini-3.1-pro');
+      const aiResponse = await callGemini(systemPrompt, [], prompt, [], targetAgent.llm_model || 'gemini-3.1-pro-preview');
       resolutionSummary = `QA Test Suite Synthesized:\n\n${aiResponse.reply.slice(0, 500)}...`;
       details = { test_suite: aiResponse.reply };
 

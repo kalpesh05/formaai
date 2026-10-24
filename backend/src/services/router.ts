@@ -66,6 +66,69 @@ export function callMockRouter(newMessage: string): RouterResponse {
 }
 
 /**
+ * Automatically upgrades deprecated/shut-down models to their recommended active equivalents,
+ * and validates active Gemini endpoints.
+ */
+export function resolveGeminiModel(inputModel?: string): string {
+  if (!inputModel || !inputModel.trim()) {
+    return 'gemini-3.8-flash';
+  }
+  const clean = inputModel.trim();
+
+  // Deprecated & Shut Down Models -> Recommended Upgrade Path
+  // gemini-3.7-flash -> Routed Endpoint -> Automatically points to gemini-3.8-flash
+  if (clean === 'gemini-3.7-flash') {
+    return 'gemini-3.8-flash';
+  }
+  // gemini-3.1-flash-live-preview -> Shut down (Nov 2026) -> Upgrade to gemini-3.8-live
+  if (clean === 'gemini-3.1-flash-live-preview') {
+    return 'gemini-3.8-live';
+  }
+  // gemini-2.0-flash / -lite -> Shut down (June 1, 2026) -> Upgrade to gemini-3.5-flash-lite
+  if (clean.startsWith('gemini-2.0-flash') || clean.startsWith('gemini-2.0-flash-lite')) {
+    return 'gemini-3.5-flash-lite';
+  }
+  // gemini-3-pro-preview / gemini-3.1-pro -> Shut down -> Upgrade to gemini-3.1-pro-preview or gemini-4-argon
+  if (clean === 'gemini-3-pro-preview' || clean === 'gemini-3.1-pro') {
+    return 'gemini-3.1-pro-preview';
+  }
+  // gemini-3.1-flash-lite-preview -> Shut down (May 2025) -> Upgrade to gemini-3.1-flash-lite
+  if (clean === 'gemini-3.1-flash-lite-preview') {
+    return 'gemini-3.1-flash-lite';
+  }
+  // gemini-1.5-pro (all variants) -> Shut down (2025) -> Upgrade to gemini-2.5-pro or gemini-3.8-flash
+  if (clean.startsWith('gemini-1.5-pro')) {
+    return 'gemini-3.8-flash';
+  }
+  // gemini-1.5-flash (all variants) -> Shut down (2025) -> Upgrade to gemini-3.5-flash-lite
+  if (clean.startsWith('gemini-1.5-flash')) {
+    return 'gemini-3.5-flash-lite';
+  }
+  // gemini-1.0-pro / -vision -> Shut down (April 2025) -> Upgrade to gemini-2.5-flash
+  if (clean.startsWith('gemini-1.0-') || clean === 'gemini-pro' || clean === 'gemini-pro-vision') {
+    return 'gemini-2.5-flash';
+  }
+  // text-bison / chat-bison -> Legacy PaLM endpoints (Shut down) -> gemini-3.8-flash
+  if (clean.includes('bison')) {
+    return 'gemini-3.8-flash';
+  }
+
+  return clean;
+}
+
+export function getGeminiCandidates(requestedModelName?: string): string[] {
+  const resolved = resolveGeminiModel(requestedModelName);
+  const fallbacks = [
+    resolved,
+    'gemini-3.8-flash',
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-2.5-flash'
+  ];
+  return fallbacks.filter((m, idx, arr) => arr.indexOf(m) === idx);
+}
+
+/**
  * Routes the query to Google Gemini using native tool-calling schemas and system prompts.
  * Dynamically uses the selected model (default: gemini-3.8-flash) with fallback resilience.
  */
@@ -106,18 +169,8 @@ export async function callGemini(
 
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-  // Normalize model name and ensure real production Gemini models are used
-  let requestedModel = (modelName && modelName.trim()) ? modelName.trim() : 'gemini-1.5-flash';
-  if (requestedModel.startsWith('gemini-3')) {
-    requestedModel = 'gemini-1.5-flash';
-  }
-
-  const candidateModels = [
-    requestedModel,
-    'gemini-1.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-pro'
-  ].filter((m, idx, arr) => arr.indexOf(m) === idx);
+  // Normalize model name and ensure real production active Gemini models are used
+  const candidateModels = getGeminiCandidates(modelName);
 
   let lastError: any = null;
 

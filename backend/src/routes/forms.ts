@@ -316,7 +316,7 @@ router.post(
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
 
       const systemInstruction = `You are an expert UX and Form Design Architect for KromaDesk SaaS.
 Given a user's request, create a clean, modern form with the optimal fields.
@@ -788,7 +788,7 @@ router.post(
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
 
       const prompt = `Analyze these ${subsRes.rows.length} form submissions for the form: "${form.title}".
 Form fields: ${JSON.stringify(form.fields)}

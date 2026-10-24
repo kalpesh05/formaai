@@ -2,7 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { AuthenticatedRequest, authenticateWidgetOrAgency, assertAgentBelongsToAgency } from '../middleware/auth';
 import pool, { query } from '../config/db';
 import { generateEmbedding } from '../services/embeddings';
-import { callGemini, ChatMessage, ToolDefinition } from '../services/router';
+import { callGemini, ChatMessage, ToolDefinition, resolveGeminiModel } from '../services/router';
 import { executeTool } from '../services/tools';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -272,8 +272,7 @@ No verified documentation was retrieved for this specific query.
     const mappedTools = mapAgentTools(toolsResult.rows);
 
     // 8. Invoke the Gemini LLM router with agent's chosen model
-    const rawModel = agent.llm_model || 'gemini-1.5-flash';
-    const activeModel = rawModel.startsWith('gemini-3') ? 'gemini-1.5-flash' : rawModel;
+    const activeModel = resolveGeminiModel(agent.llm_model || 'gemini-3.8-flash');
     let routerResponse = await callGemini(
       systemPrompt,
       chatHistory,
