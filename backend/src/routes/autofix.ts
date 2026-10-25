@@ -109,7 +109,7 @@ router.post('/agents/:id/autofix/generate', authenticateAgency, asyncHandler(asy
   const agencyId = req.agencyId!;
   await assertAgentBelongsToAgency(agentId, agencyId);
 
-  const { bugDescription, errorTrace, targetFile, ticketId, title, repoConfig } = req.body;
+  const { bugDescription, errorTrace, targetFile, fileContext, ticketId, title, repoConfig } = req.body;
 
   if (!bugDescription) {
     return res.status(400).json({ error: 'bugDescription is required' });
@@ -120,6 +120,7 @@ router.post('/agents/:id/autofix/generate', authenticateAgency, asyncHandler(asy
     bugDescription,
     errorTrace,
     targetFile,
+    fileContext,
     ticketId,
     title,
     repoConfig

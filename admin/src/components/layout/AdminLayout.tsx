@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  BarChart3, Users, Shield, LogOut, KeyRound, Check
+  BarChart3, Users, Shield, LogOut, KeyRound, Check, CreditCard
 } from 'lucide-react';
 import { removeToken, getUser, apiRequest } from '../../services/api';
 import Modal from '../ui/Modal';
@@ -93,6 +93,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <NavLink to="/customers" className={navLinkClass}>
               <Users size={16} />
               <span>Customer CRM</span>
+            </NavLink>
+
+            <NavLink to="/plans" className={navLinkClass}>
+              <CreditCard size={16} />
+              <span>Billing & Plans</span>
             </NavLink>
           </div>
         </div>

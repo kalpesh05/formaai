@@ -83,6 +83,55 @@ export interface WorkspaceUsageReport {
 }
 
 /**
+ * Dynamically resolves plan definition:
+ * 1. Checks if workspace has an active subscription with grandfathered plan_snapshot (locked-in quotas)
+ * 2. If not, queries dynamic plan from subscription_plans DB table
+ * 3. Falls back to static code config
+ */
+export async function getDynamicPlanDefinition(planTier?: string, workspaceId?: string) {
+  if (workspaceId) {
+    try {
+      const subRes = await pool.query(
+        `SELECT plan_id, plan_snapshot FROM workspace_subscriptions
+         WHERE workspace_id = $1 AND status = 'active'
+         ORDER BY created_at DESC LIMIT 1`,
+        [workspaceId]
+      );
+      if (subRes.rows.length > 0 && subRes.rows[0].plan_snapshot?.monthlyMessageLimit) {
+        return subRes.rows[0].plan_snapshot;
+      }
+    } catch {
+      // Ignore if table is initializing
+    }
+  }
+
+  const normalized = (planTier || 'trial').toLowerCase();
+  try {
+    const planRes = await pool.query(
+      `SELECT id, name, tagline, monthly_price as "monthlyPrice", yearly_monthly_price as "yearlyMonthlyPrice",
+              max_agents as "maxAgents", monthly_message_limit as "monthlyMessageLimit",
+              max_forms as "maxForms", max_ingest_urls as "maxIngestUrls",
+              white_label as "whiteLabel", custom_colors as "customColors", rank, highlight
+       FROM subscription_plans
+       WHERE id = $1`,
+      [normalized]
+    );
+    if (planRes.rows.length > 0) {
+      const r = planRes.rows[0];
+      return {
+        ...r,
+        monthlyPrice: Number(r.monthlyPrice),
+        yearlyMonthlyPrice: Number(r.yearlyMonthlyPrice),
+      };
+    }
+  } catch {
+    // fallback to static
+  }
+
+  return getPlanDefinition(normalized);
+}
+
+/**
  * Get comprehensive usage and quota report for a workspace
  */
 export async function getWorkspaceUsage(workspaceId: string): Promise<WorkspaceUsageReport | null> {
@@ -108,7 +157,7 @@ export async function getWorkspaceUsage(workspaceId: string): Promise<WorkspaceU
   const formCount = formCountRes.rows[0]?.count || 0;
   const messageCount = ws.monthly_message_count || 0;
 
-  const plan = getPlanDefinition(ws.plan_tier);
+  const plan = await getDynamicPlanDefinition(ws.plan_tier, workspaceId);
 
   // Compute trial status
   let trialDaysRemaining = 0;

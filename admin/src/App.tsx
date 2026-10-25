@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AdminLogin from './pages/AdminLogin';
 import AdminOverview from './pages/AdminOverview';
 import AdminCustomerDetail from './pages/AdminCustomerDetail';
+import AdminPlans from './pages/AdminPlans';
 import AdminLayout from './components/layout/AdminLayout';
 import { getToken, getUser } from './services/api';
 
@@ -51,6 +52,15 @@ function App() {
           element={
             <ProtectedAdminRoute>
               <AdminCustomerDetail />
+            </ProtectedAdminRoute>
+          }
+        />
+
+        <Route
+          path="/plans"
+          element={
+            <ProtectedAdminRoute>
+              <AdminPlans />
             </ProtectedAdminRoute>
           }
         />

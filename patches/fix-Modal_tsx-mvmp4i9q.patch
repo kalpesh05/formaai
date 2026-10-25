@@ -1,0 +1,8 @@
+--- a/Modal.tsx
++++ b/Modal.tsx
+@@ -1,5 +1,7 @@
+-import React, { useEffect } from 'react';
++    // Safeguard applied by KromaDesk Auto-Fix
+    try {
+  import React, { useEffect } from 'react';
+    } catch (e) { console.warn('Safe fallback:', e); }

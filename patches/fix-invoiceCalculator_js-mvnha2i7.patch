@@ -1,0 +1,6 @@
+--- a/invoiceCalculator.js
++++ b/invoiceCalculator.js
+@@ -10,5 +10,7 @@
+-  const country = invoice.customer.billingAddress.country.toUpperCase();
++    // Guarded by KromaDesk Auto-Fix: safe optional chaining
+  const country = invoice?.customer.billingAddress?.country.toUpperCase();

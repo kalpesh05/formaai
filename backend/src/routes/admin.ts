@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import pool, { query } from '../config/db';
 import { AuthenticatedRequest, authenticateAgency, requireSuperAdmin } from '../middleware/auth';
 import { TEMPLATES } from '../config/templates';
+import { syncPlanWithGateways } from '../services/paymentGateway';
 
 const router = Router();
 
@@ -653,6 +654,351 @@ router.patch('/platform/modules', asyncHandler(async (req: AuthenticatedRequest,
   );
 
   return res.json({ success: true, modules: currentModules });
+}));
+
+/**
+ * ── DYNAMIC PLAN MANAGEMENT & PAYMENT GATEWAY SYNC ──
+ */
+
+/**
+ * GET /api/v1/admin/plans
+ * Returns all configured plans from the database with active subscriber counts and MRR
+ */
+router.get('/plans', asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+  const plansRes = await query(`
+    SELECT sp.*,
+           COUNT(cw.id)::int as total_workspaces,
+           COUNT(CASE WHEN cw.subscription_status = 'active' THEN 1 END)::int as active_subscribers,
+           COALESCE(SUM(CASE 
+             WHEN cw.subscription_status = 'active' AND cw.billing_interval = 'yearly' THEN sp.yearly_monthly_price
+             WHEN cw.subscription_status = 'active' THEN sp.monthly_price
+             ELSE 0
+           END), 0)::numeric as estimated_mrr
+    FROM subscription_plans sp
+    LEFT JOIN client_workspaces cw ON cw.plan_tier = sp.id
+    GROUP BY sp.id
+    ORDER BY sp.rank ASC, sp.monthly_price ASC
+  `);
+
+  return res.json(plansRes.rows);
+}));
+
+/**
+ * POST /api/v1/admin/plans
+ * Creates a new plan, synchronizes with Stripe & Razorpay, and inserts into DB
+ */
+router.post('/plans', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const {
+    id,
+    name,
+    tagline,
+    monthly_price = 0,
+    yearly_monthly_price = 0,
+    currency = 'usd',
+    max_agents = 1,
+    monthly_message_limit = 1000,
+    max_forms = 0,
+    max_ingest_urls = 20,
+    white_label = false,
+    custom_colors = false,
+    payment_provider = 'stripe',
+    rank = 1,
+    highlight = false,
+    is_public = true,
+  } = req.body;
+
+  if (!id || !name) {
+    return res.status(400).json({ error: 'id and name are required' });
+  }
+
+  // Clean slug format
+  const cleanId = id.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '_');
+
+  // Check if plan ID already exists
+  const existing = await query('SELECT id FROM subscription_plans WHERE id = $1', [cleanId]);
+  if (existing.rows.length > 0) {
+    return res.status(400).json({ error: `Plan with ID '${cleanId}' already exists.` });
+  }
+
+  // Synchronize with selected payment gateways
+  const syncResult = await syncPlanWithGateways({
+    id: cleanId,
+    name,
+    tagline,
+    monthly_price: Number(monthly_price),
+    yearly_monthly_price: Number(yearly_monthly_price),
+    currency,
+    payment_provider,
+  });
+
+  const insertRes = await query(
+    `INSERT INTO subscription_plans (
+      id, name, tagline, monthly_price, yearly_monthly_price, currency,
+      max_agents, monthly_message_limit, max_forms, max_ingest_urls,
+      white_label, custom_colors, rank, highlight, is_public, payment_provider,
+      stripe_product_id, stripe_price_monthly_id, stripe_price_yearly_id,
+      razorpay_plan_monthly_id, razorpay_plan_yearly_id
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6,
+      $7, $8, $9, $10,
+      $11, $12, $13, $14, $15, $16,
+      $17, $18, $19,
+      $20, $21
+    ) RETURNING *`,
+    [
+      cleanId, name, tagline || null, Number(monthly_price), Number(yearly_monthly_price), currency,
+      Number(max_agents), Number(monthly_message_limit), Number(max_forms), Number(max_ingest_urls),
+      Boolean(white_label), Boolean(custom_colors), Number(rank), Boolean(highlight), Boolean(is_public), payment_provider,
+      syncResult.stripe_product_id || null, syncResult.stripe_price_monthly_id || null, syncResult.stripe_price_yearly_id || null,
+      syncResult.razorpay_plan_monthly_id || null, syncResult.razorpay_plan_yearly_id || null
+    ]
+  );
+
+  return res.status(201).json({
+    plan: insertRes.rows[0],
+    sync_logs: syncResult.sync_logs,
+  });
+}));
+
+/**
+ * PUT /api/v1/admin/plans/:id
+ * Updates an existing plan.
+ * Handles pricing adjustments with optional Grandfathering:
+ * - grandfather_existing: true (Default) -> preserves locked price & limits for all existing active subscribers.
+ * - grandfather_existing: false -> immediately elevates existing subscribers to new limits and scheduled rate.
+ */
+router.put('/plans/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const planId = req.params.id;
+  const {
+    name,
+    tagline,
+    monthly_price,
+    yearly_monthly_price,
+    currency = 'usd',
+    max_agents,
+    monthly_message_limit,
+    max_forms,
+    max_ingest_urls,
+    white_label,
+    custom_colors,
+    payment_provider = 'stripe',
+    rank,
+    highlight,
+    is_public,
+    is_active,
+    grandfather_existing = true, // By default protect existing customers
+  } = req.body;
+
+  const currentRes = await query('SELECT * FROM subscription_plans WHERE id = $1', [planId]);
+  if (currentRes.rows.length === 0) {
+    return res.status(404).json({ error: `Plan '${planId}' not found.` });
+  }
+  const currentPlan = currentRes.rows[0];
+
+  const priceChanged =
+    (monthly_price !== undefined && Number(monthly_price) !== Number(currentPlan.monthly_price)) ||
+    (yearly_monthly_price !== undefined && Number(yearly_monthly_price) !== Number(currentPlan.yearly_monthly_price));
+
+  // If price changed or gateway provider changed, sync with gateways to generate new price IDs
+  let syncResult: any = {};
+  if (priceChanged || payment_provider !== currentPlan.payment_provider) {
+    syncResult = await syncPlanWithGateways({
+      id: planId,
+      name: name || currentPlan.name,
+      tagline: tagline || currentPlan.tagline,
+      monthly_price: monthly_price !== undefined ? Number(monthly_price) : Number(currentPlan.monthly_price),
+      yearly_monthly_price: yearly_monthly_price !== undefined ? Number(yearly_monthly_price) : Number(currentPlan.yearly_monthly_price),
+      currency,
+      payment_provider,
+      stripe_product_id: currentPlan.stripe_product_id,
+    });
+  }
+
+  // Update subscription_plans table
+  const updatedRes = await query(
+    `UPDATE subscription_plans
+     SET name = COALESCE($1, name),
+         tagline = COALESCE($2, tagline),
+         monthly_price = COALESCE($3, monthly_price),
+         yearly_monthly_price = COALESCE($4, yearly_monthly_price),
+         currency = COALESCE($5, currency),
+         max_agents = COALESCE($6, max_agents),
+         monthly_message_limit = COALESCE($7, monthly_message_limit),
+         max_forms = COALESCE($8, max_forms),
+         max_ingest_urls = COALESCE($9, max_ingest_urls),
+         white_label = COALESCE($10, white_label),
+         custom_colors = COALESCE($11, custom_colors),
+         payment_provider = COALESCE($12, payment_provider),
+         rank = COALESCE($13, rank),
+         highlight = COALESCE($14, highlight),
+         is_public = COALESCE($15, is_public),
+         is_active = COALESCE($16, is_active),
+         stripe_price_monthly_id = COALESCE($17, stripe_price_monthly_id),
+         stripe_price_yearly_id = COALESCE($18, stripe_price_yearly_id),
+         razorpay_plan_monthly_id = COALESCE($19, razorpay_plan_monthly_id),
+         razorpay_plan_yearly_id = COALESCE($20, razorpay_plan_yearly_id),
+         updated_at = now()
+     WHERE id = $21
+     RETURNING *`,
+    [
+      name ?? null, tagline ?? null,
+      monthly_price !== undefined ? Number(monthly_price) : null,
+      yearly_monthly_price !== undefined ? Number(yearly_monthly_price) : null,
+      currency ?? null,
+      max_agents !== undefined ? Number(max_agents) : null,
+      monthly_message_limit !== undefined ? Number(monthly_message_limit) : null,
+      max_forms !== undefined ? Number(max_forms) : null,
+      max_ingest_urls !== undefined ? Number(max_ingest_urls) : null,
+      white_label !== undefined ? Boolean(white_label) : null,
+      custom_colors !== undefined ? Boolean(custom_colors) : null,
+      payment_provider ?? null,
+      rank !== undefined ? Number(rank) : null,
+      highlight !== undefined ? Boolean(highlight) : null,
+      is_public !== undefined ? Boolean(is_public) : null,
+      is_active !== undefined ? Boolean(is_active) : null,
+      syncResult.stripe_price_monthly_id ?? null,
+      syncResult.stripe_price_yearly_id ?? null,
+      syncResult.razorpay_plan_monthly_id ?? null,
+      syncResult.razorpay_plan_yearly_id ?? null,
+      planId
+    ]
+  );
+
+  let affectedSubscribersCount = 0;
+  // If admin chooses NOT to grandfather, update all active subscribers to the new limits and new price
+  if (!grandfather_existing && priceChanged) {
+    const updatedPlan = updatedRes.rows[0];
+    const updateSubs = await query(
+      `UPDATE workspace_subscriptions
+       SET locked_price = CASE WHEN billing_interval = 'yearly' THEN $1 ELSE $2 END,
+           plan_snapshot = $3,
+           updated_at = now()
+       WHERE plan_id = $4 AND status = 'active'`,
+      [
+        updatedPlan.yearly_monthly_price,
+        updatedPlan.monthly_price,
+        JSON.stringify(updatedPlan),
+        planId
+      ]
+    );
+    affectedSubscribersCount = updateSubs.rowCount || 0;
+  }
+
+  return res.json({
+    success: true,
+    plan: updatedRes.rows[0],
+    price_changed: priceChanged,
+    grandfathered: grandfather_existing,
+    subscribers_migrated: affectedSubscribersCount,
+    sync_logs: syncResult.sync_logs || [],
+  });
+}));
+
+/**
+ * DELETE /api/v1/admin/plans/:id
+ * Soft deletes / deactivates a plan so existing subscribers are never broken
+ */
+router.delete('/plans/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const planId = req.params.id;
+  await query('UPDATE subscription_plans SET is_active = false, is_public = false, updated_at = now() WHERE id = $1', [planId]);
+  return res.json({ success: true, message: `Plan '${planId}' deactivated successfully.` });
+}));
+
+/**
+ * GET /api/v1/admin/subscriptions
+ * Retrieves all paying customers, their locked price vs current plan price,
+ * grandfathering status, next renewal date, and transaction receipts.
+ */
+router.get('/subscriptions', asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+  const subsRes = await query(`
+    SELECT 
+      cw.id as workspace_id,
+      cw.name as workspace_name,
+      cw.industry,
+      cw.plan_tier,
+      cw.subscription_status,
+      cw.billing_interval,
+      cw.trial_ends_at,
+      a.email as owner_email,
+      a.name as owner_name,
+      sp.name as plan_name,
+      sp.monthly_price as current_monthly_price,
+      sp.yearly_monthly_price as current_yearly_price,
+      ws.id as subscription_uuid,
+      ws.provider,
+      ws.subscription_id,
+      ws.locked_price,
+      ws.current_period_end,
+      ws.cancel_at_period_end,
+      ws.created_at as subscribed_at,
+      CASE 
+        WHEN ws.locked_price IS NOT NULL AND ws.locked_price < (
+          CASE WHEN cw.billing_interval = 'yearly' THEN sp.yearly_monthly_price ELSE sp.monthly_price END
+        ) THEN true
+        ELSE false
+      END as is_grandfathered
+    FROM client_workspaces cw
+    LEFT JOIN agencies a ON a.id = cw.agency_id
+    LEFT JOIN subscription_plans sp ON sp.id = cw.plan_tier
+    LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = cw.id AND ws.status = 'active'
+    ORDER BY ws.created_at DESC NULLS LAST, cw.created_at DESC
+  `);
+
+  return res.json(subsRes.rows);
+}));
+
+/**
+ * POST /api/v1/admin/subscriptions/:workspaceId/migrate
+ * Manually or bulk-migrates a grandfathered subscriber to the latest plan rates & limits
+ */
+router.post('/subscriptions/:workspaceId/migrate', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { workspaceId } = req.params;
+
+  const wsRes = await query('SELECT id, plan_tier, billing_interval FROM client_workspaces WHERE id = $1', [workspaceId]);
+  if (wsRes.rows.length === 0) {
+    return res.status(404).json({ error: 'Workspace not found' });
+  }
+
+  const ws = wsRes.rows[0];
+  const planRes = await query('SELECT * FROM subscription_plans WHERE id = $1', [ws.plan_tier]);
+  if (planRes.rows.length === 0) {
+    return res.status(404).json({ error: 'Associated plan not found' });
+  }
+
+  const latestPlan = planRes.rows[0];
+  const newPrice = ws.billing_interval === 'yearly' ? latestPlan.yearly_monthly_price : latestPlan.monthly_price;
+
+  await query(
+    `INSERT INTO workspace_subscriptions (
+       workspace_id, plan_id, provider, status, billing_interval, locked_price, plan_snapshot
+     ) VALUES (
+       $1, $2, $3, 'active', $4, $5, $6
+     )
+     ON CONFLICT (id) DO NOTHING`,
+    [
+      workspaceId,
+      ws.plan_tier,
+      latestPlan.payment_provider || 'stripe',
+      ws.billing_interval || 'monthly',
+      newPrice,
+      JSON.stringify(latestPlan)
+    ]
+  );
+
+  await query(
+    `UPDATE workspace_subscriptions
+     SET locked_price = $1,
+         plan_snapshot = $2,
+         updated_at = now()
+     WHERE workspace_id = $3 AND status = 'active'`,
+    [newPrice, JSON.stringify(latestPlan), workspaceId]
+  );
+
+  return res.json({
+    success: true,
+    message: `Workspace successfully migrated to latest ${latestPlan.name} price (\$${newPrice})`,
+    new_price: newPrice,
+  });
 }));
 
 export default router;

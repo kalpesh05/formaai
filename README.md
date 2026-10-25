@@ -129,3 +129,32 @@ Navigate to the `backend/` directory and run:
 * **RAG Chat Queries:** `npx ts-node src/test-query.ts`
 * **Agentic Tool Loops:** `npx ts-node src/test-tools.ts`
 * **Nodemailer & Cal.com:** `npx ts-node src/test-integrations.ts`
+* **AI Beta Tester & Auto-Fix:** `npx ts-node src/test-beta-tester.ts`
+
+---
+
+## 🛠️ Autonomous Software Factory & Local CLI (`kromadesk-local.js`)
+
+For clients and teams who want **proactive bug finding** or **refuse to grant GitHub repo access**, use the local CLI companion. It runs 100% locally on your machine with zero code sent to external repositories:
+
+### 1. Proactive Codebase Audit (Find & Fix Bugs Pre-Launch)
+Scans any local directory for unhandled null exceptions, missing optional chaining, uncaught JSON parsing, and crash risks:
+```bash
+node scripts/kromadesk-local.js audit ./src
+```
+* Generates an automated Vitest/Jest reproduction test.
+* Creates a surgical `.patch` diff in `./patches/`.
+* Gives you a 1-click command to apply to your local git working branch (`git apply`).
+
+### 2. Surgical Local Fix with 100% Real File Context
+Generate an exact reproduction test and patch for any local file using real local file lines:
+```bash
+node scripts/kromadesk-local.js fix src/components/PaymentModal.tsx "TypeError on null user billing address"
+```
+
+### 3. Zero-Repo-Access Telemetry Watcher
+Run a local telemetry listener on your development machine:
+```bash
+node scripts/kromadesk-local.js watch 4567
+```
+When `forma-monitor.js` in your local app catches an unhandled error, the watcher reads the exact file on your local disk at the crash line, writes a `.patch` file, and stages it for your local branch without needing GitHub API tokens.

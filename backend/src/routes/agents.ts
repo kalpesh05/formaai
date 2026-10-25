@@ -14,6 +14,11 @@ const asyncHandler = (fn: (req: AuthenticatedRequest, res: Response, next: NextF
   };
 };
 
+// GET /api/v1/templates - List all available agent presets and templates
+router.get('/templates', asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+  return res.json(TEMPLATES);
+}));
+
 // GET /api/v1/workspaces/:workspaceId/agents - List all agents inside a workspace
 router.get('/workspaces/:workspaceId/agents', authenticateAgency, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { workspaceId } = req.params;

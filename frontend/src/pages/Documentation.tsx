@@ -5,10 +5,11 @@ import {
   Globe, Laptop, Smartphone, Terminal, HelpCircle, Mail, ClipboardList
 } from 'lucide-react';
 import { useWorkspace } from '../context/WorkspaceContext';
+import InteractiveSimulator from '../components/agent/InteractiveSimulator';
 
 export default function Documentation() {
   const { selectedWs } = useWorkspace();
-  const [activeTab, setActiveTab] = useState<'wizard' | 'forms' | 'mailbox' | 'architecture' | 'personas' | 'api' | 'faq'>('wizard');
+  const [activeTab, setActiveTab] = useState<'playground' | 'wizard' | 'forms' | 'mailbox' | 'architecture' | 'personas' | 'api' | 'faq'>('playground');
 
   // Wizard state
   const [platform, setPlatform] = useState<'web' | 'electron' | 'flutter'>('web');
@@ -172,6 +173,17 @@ void main() {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setActiveTab('playground')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'playground'
+                  ? 'bg-amber-400 text-slate-950 shadow-md ring-2 ring-amber-300'
+                  : 'bg-slate-800 text-amber-300 hover:bg-slate-700'
+              }`}
+            >
+              <Sparkles size={13} className="text-amber-400 animate-pulse" />
+              ⚡ Live Simulator Playground
+            </button>
+            <button
               onClick={() => setActiveTab('wizard')}
               className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
                 activeTab === 'wizard'
@@ -240,6 +252,11 @@ void main() {
       {/* Main Content Area */}
       <div className="max-w-6xl w-full mx-auto p-8 space-y-8 flex-1">
         
+        {/* TAB 0: 100% ONLINE LIVE SIMULATOR PLAYGROUND */}
+        {activeTab === 'playground' && (
+          <InteractiveSimulator />
+        )}
+
         {/* TAB 1: INTERACTIVE SETUP WIZARD & MINI GUIDER */}
         {activeTab === 'wizard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

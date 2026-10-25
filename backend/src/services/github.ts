@@ -30,6 +30,54 @@ export class GitHubService {
   }
 
   /**
+   * Fetches real file content from the repository if available
+   */
+  async getFileContent(filePath: string, ref?: string): Promise<string | null> {
+    const { provider = 'github', owner, repo, token, defaultBranch = 'main', apiBaseUrl, gitlabProjectId } = this.config;
+    
+    // GitHub
+    if (provider === 'github' && token && token.trim() !== '' && !token.startsWith('mock_')) {
+      try {
+        const baseHost = apiBaseUrl || 'https://api.github.com';
+        const targetRef = ref || defaultBranch;
+        const res = await fetch(`${baseHost}/repos/${owner}/${repo}/contents/${filePath}?ref=${targetRef}`, {
+          headers: {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.content && data.encoding === 'base64') {
+            return Buffer.from(data.content, 'base64').toString('utf8');
+          }
+        }
+      } catch (err: any) {
+        console.warn('[GIT SERVICE] getFileContent failed for GitHub:', err.message);
+      }
+    }
+
+    // GitLab
+    if (provider === 'gitlab' && token && token.trim() !== '' && !token.startsWith('mock_')) {
+      try {
+        const baseHost = apiBaseUrl || 'https://gitlab.com/api/v4';
+        const projectIdentifier = encodeURIComponent(String(gitlabProjectId || `${owner}/${repo}`));
+        const encodedFilePath = encodeURIComponent(filePath);
+        const res = await fetch(`${baseHost}/projects/${projectIdentifier}/repository/files/${encodedFilePath}/raw?ref=${ref || defaultBranch}`, {
+          headers: { 'PRIVATE-TOKEN': token }
+        });
+        if (res.ok) {
+          return await res.text();
+        }
+      } catch (err: any) {
+        console.warn('[GIT SERVICE] getFileContent failed for GitLab:', err.message);
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Opens a Pull Request / Merge Request with reproduction test and surgical patch
    */
   async createAutoFixPR(

@@ -306,3 +306,99 @@ VALUES (
   }'::jsonb
 )
 ON CONFLICT (key) DO NOTHING;
+
+-- Dynamic Subscription Plans Table (Admin-Configurable with Gateway Sync)
+CREATE TABLE IF NOT EXISTS subscription_plans (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  tagline TEXT,
+  monthly_price NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  yearly_monthly_price NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  currency VARCHAR(10) NOT NULL DEFAULT 'usd',
+  max_agents INT NOT NULL DEFAULT 1,
+  monthly_message_limit INT NOT NULL DEFAULT 1000,
+  max_forms INT NOT NULL DEFAULT 0,
+  max_ingest_urls INT NOT NULL DEFAULT 20,
+  white_label BOOLEAN NOT NULL DEFAULT false,
+  custom_colors BOOLEAN NOT NULL DEFAULT false,
+  rank INT NOT NULL DEFAULT 1,
+  highlight BOOLEAN NOT NULL DEFAULT false,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  is_public BOOLEAN NOT NULL DEFAULT true,
+  payment_provider VARCHAR(32) NOT NULL DEFAULT 'stripe',
+  stripe_product_id VARCHAR(255),
+  stripe_price_monthly_id VARCHAR(255),
+  stripe_price_yearly_id VARCHAR(255),
+  razorpay_plan_monthly_id VARCHAR(255),
+  razorpay_plan_yearly_id VARCHAR(255),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_subscription_plans_active ON subscription_plans(is_active);
+
+-- Seed Default Production Plans (Future-proof balanced quotas)
+INSERT INTO subscription_plans (
+  id, name, tagline, monthly_price, yearly_monthly_price, currency,
+  max_agents, monthly_message_limit, max_forms, max_ingest_urls,
+  white_label, custom_colors, rank, highlight, is_active, is_public, payment_provider
+) VALUES
+(
+  'trial', '14-Day Free Trial', 'Experience full KromaDesk capabilities risk-free',
+  0, 0, 'usd', 1, 300, 1, 5, false, true, 2, false, true, true, 'stripe'
+),
+(
+  'starter', 'Starter', 'Essential AI Chatbot for individual websites and blogs',
+  29, 24, 'usd', 1, 1000, 0, 20, false, false, 1, false, true, true, 'stripe'
+),
+(
+  'growth', 'Growth', 'High-performing AI Agent with custom branding & lead capture',
+  79, 65, 'usd', 3, 3500, 5, 100, false, true, 2, true, true, true, 'stripe'
+),
+(
+  'business', 'Business Suite', 'Complete automated front-office with full white-labeling',
+  199, 165, 'usd', 999, 10000, 999, 9999, true, true, 3, false, true, true, 'stripe'
+),
+(
+  'enterprise', 'Enterprise', 'Custom volume, dedicated observability & SLA support',
+  499, 415, 'usd', 999, 30000, 999, 9999, true, true, 4, false, true, true, 'stripe'
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Active Workspace Subscriptions Table (With Grandfathered Plan Snapshot)
+CREATE TABLE IF NOT EXISTS workspace_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID NOT NULL REFERENCES client_workspaces(id) ON DELETE CASCADE,
+  plan_id VARCHAR(64) NOT NULL REFERENCES subscription_plans(id),
+  provider VARCHAR(32) NOT NULL DEFAULT 'stripe',
+  subscription_id VARCHAR(255),
+  customer_id VARCHAR(255),
+  price_id VARCHAR(255),
+  status VARCHAR(32) NOT NULL DEFAULT 'active',
+  billing_interval VARCHAR(16) NOT NULL DEFAULT 'monthly',
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  cancel_at_period_end BOOLEAN NOT NULL DEFAULT false,
+  locked_price NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  plan_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_workspace_subscriptions_ws ON workspace_subscriptions(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_subscriptions_status ON workspace_subscriptions(status);
+
+-- Invoices & Payment History Table
+CREATE TABLE IF NOT EXISTS payment_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID NOT NULL REFERENCES client_workspaces(id) ON DELETE CASCADE,
+  provider VARCHAR(32) NOT NULL DEFAULT 'stripe',
+  transaction_id VARCHAR(255) NOT NULL,
+  invoice_id VARCHAR(255),
+  amount NUMERIC(10, 2) NOT NULL,
+  currency VARCHAR(10) NOT NULL DEFAULT 'usd',
+  status VARCHAR(32) NOT NULL DEFAULT 'succeeded',
+  receipt_url TEXT,
+  paid_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_payment_history_ws ON payment_history(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_payment_history_paid_at ON payment_history(paid_at DESC);
+

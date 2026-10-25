@@ -1,0 +1,6 @@
+--- a/AdminLayout.tsx
++++ b/AdminLayout.tsx
+@@ -163,5 +163,7 @@
+-              onChange={(e) => setCurrentPassword(e.target.value)}
++    // Guarded by KromaDesk Auto-Fix: safe optional chaining
+              onChange={(e) => setCurrentPassword(e?.target.value)}

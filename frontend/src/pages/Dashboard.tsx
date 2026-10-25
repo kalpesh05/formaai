@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest } from '../services/api';
 import {
-  Building2, Plus, Bot, ArrowRight, Sparkles, Users, Terminal, Layout, ShieldCheck
+  Building2, Plus, Bot, ArrowRight, Sparkles, Users, Terminal, Layout, ShieldCheck, Layers
 } from 'lucide-react';
 import { useWorkspace } from '../context/WorkspaceContext';
 import Button from '../components/ui/Button';
@@ -12,7 +12,7 @@ import EmptyState from '../components/ui/EmptyState';
 import Alert from '../components/ui/Alert';
 import UpgradeModal from '../components/ui/UpgradeModal';
 
-export type TemplateType = 'support' | 'sales' | 'hr' | 'backend_dev' | 'frontend_dev' | 'qa_tester' | 'router';
+export type TemplateType = 'support' | 'sales' | 'hr' | 'backend_dev' | 'frontend_dev' | 'qa_tester' | 'router' | 'system_architect';
 
 interface Agent {
   id: string;
@@ -495,6 +495,21 @@ export default function Dashboard() {
                   <Sparkles size={14} /> Sales & Booking
                 </div>
                 <div className="text-[11px] text-slate-500 leading-tight">Inbound lead qualification & Cal.com demo booking</div>
+              </div>
+
+              {/* System Architect */}
+              <div
+                onClick={() => setNewAgentTemplate('system_architect')}
+                className={`border rounded-lg p-3 cursor-pointer hover:border-brand-500 transition-all text-left space-y-1 ${
+                  newAgentTemplate === 'system_architect'
+                    ? 'border-teal-600 bg-teal-50/60 ring-1 ring-teal-600'
+                    : 'border-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 text-teal-700 font-bold text-xs">
+                  <Layers size={14} /> System Architect
+                </div>
+                <div className="text-[11px] text-slate-500 leading-tight">Turns ideas into C4 diagrams, SQL schemas & scaling blueprints</div>
               </div>
             </div>
           </div>
