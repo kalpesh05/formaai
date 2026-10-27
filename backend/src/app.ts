@@ -13,6 +13,8 @@ import adminRouter from './routes/admin';
 import mailboxRouter from './routes/mailbox';
 import formsRouter from './routes/forms';
 import plansRouter from './routes/plans';
+import aopsRouter from './routes/aops';
+import duetRouter from './routes/duet';
 
 dotenv.config();
 
@@ -35,6 +37,8 @@ app.use('/api/v1', evaluationRouter);
 app.use('/api/v1', autofixRouter);
 app.use('/api/v1', mailboxRouter);
 app.use('/api/v1', formsRouter);
+app.use('/api/v1', aopsRouter);
+app.use('/api/v1', duetRouter);
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {

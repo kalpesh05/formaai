@@ -135,12 +135,14 @@ router.get('/agents/:id', authenticateAgency, asyncHandler(async (req: Authentic
   );
   let tools = toolsResult.rows;
 
-  // Auto-seed missing telemetry & state tools for existing agents
+  // Auto-seed missing telemetry, state & enterprise connector tools for agents
   const existingTypes = new Set(tools.map(t => t.tool_type));
   const candidateTools = [
     { tool_type: 'ticket_create', tool_config: {} },
     { tool_type: 'database_query', tool_config: { description: 'Read-only live database & billing verification' } },
-    { tool_type: 'sentry_telemetry', tool_config: { description: 'Sentry application error trace & crash correlator' } }
+    { tool_type: 'sentry_telemetry', tool_config: { description: 'Sentry application error trace & crash correlator' } },
+    { tool_type: 'shopify_orders', tool_config: { description: '2-Way Shopify order lookup, cancellation & RMA return portal' } },
+    { tool_type: 'zendesk_sync', tool_config: { description: '2-Way Zendesk ticket creation & AI warm handoff sync' } }
   ];
 
   for (const cand of candidateTools) {

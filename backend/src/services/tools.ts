@@ -1,6 +1,8 @@
 import { query } from '../config/db';
 import nodemailer from 'nodemailer';
 import { queryUserAccountState, fetchTelemetryErrors } from './telemetry';
+import { handleShopifyLookupOrder, handleShopifyCancelOrder, handleShopifyReturnLabel } from './connectors/shopify';
+import { handleZendeskTicketSync } from './connectors/zendesk';
 
 export interface ToolContext {
   agentId: string;
@@ -34,6 +36,18 @@ export async function executeTool(
       const { date, time, attendee_email } = input;
       if (!date || !time || !attendee_email) {
         throw new Error('date, time, and attendee_email are required parameters');
+      }
+
+      // Pre-flight validation: Email format check
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(String(attendee_email).trim())) {
+        throw new Error(`Invalid email address: "${attendee_email}". Please provide a valid email format (e.g. user@example.com).`);
+      }
+
+      // Pre-flight validation: Date format check (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(String(date).trim())) {
+        throw new Error(`Invalid date format: "${date}". Expected format is YYYY-MM-DD.`);
       }
 
       // 1. Resolve Cal.com configuration (check DB toolConfig overrides first, then environment)
@@ -156,6 +170,22 @@ export async function executeTool(
       const telemetryResult = await fetchTelemetryErrors(input, toolConfig, context.sessionContext || {});
       resultData = telemetryResult;
       
+    } else if (toolName === 'shopify_lookup_order') {
+      const shopifyResult = await handleShopifyLookupOrder(input as any, toolConfig);
+      resultData = shopifyResult;
+
+    } else if (toolName === 'shopify_cancel_unfulfilled_order') {
+      const cancelResult = await handleShopifyCancelOrder(input as any, toolConfig);
+      resultData = cancelResult;
+
+    } else if (toolName === 'shopify_request_return_label') {
+      const returnResult = await handleShopifyReturnLabel(input as any, toolConfig);
+      resultData = returnResult;
+
+    } else if (toolName === 'zendesk_sync_ticket') {
+      const zendeskResult = await handleZendeskTicketSync(input as any, toolConfig);
+      resultData = zendeskResult;
+
     } else {
       throw new Error(`Unsupported tool name: ${toolName}`);
     }

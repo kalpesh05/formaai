@@ -1,10 +1,14 @@
 import { Router, Response, NextFunction } from 'express';
 import { AuthenticatedRequest, authenticateWidgetOrAgency, assertAgentBelongsToAgency } from '../middleware/auth';
 import pool, { query } from '../config/db';
-import { generateEmbedding } from '../services/embeddings';
 import { callGemini, ChatMessage, ToolDefinition, resolveGeminiModel } from '../services/router';
 import { executeTool } from '../services/tools';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { condenseQuery } from '../services/queryCondenser';
+import { performHybridSearch } from '../services/hybridSearch';
+import { evaluateGrounding } from '../services/critic';
+import { matchAOP, formatAOPInstruction } from '../services/aopEngine';
+import { assessRiskAndSentiment, generateWarmHandoffBrief } from '../services/watchtower';
 
 const router = Router();
 
@@ -14,13 +18,17 @@ const asyncHandler = (fn: (req: AuthenticatedRequest, res: Response, next: NextF
   };
 };
 
+const riskCheckLabel = (cat?: string) => (cat || 'RISK').toUpperCase();
+
 /**
  * Maps DB tool records to Gemini function call JSON schemas
  */
 function mapAgentTools(rows: any[]): ToolDefinition[] {
-  return rows.map(r => {
+  const tools: ToolDefinition[] = [];
+
+  for (const r of rows) {
     if (r.tool_type === 'calendar_booking') {
-      return {
+      tools.push({
         name: 'book_calendar_slot',
         description: 'Schedule a demo or booking slot on the calendar. Use this when the user explicitly asks to book a call, schedule a demo, or set up a meeting.',
         input_schema: {
@@ -32,9 +40,63 @@ function mapAgentTools(rows: any[]): ToolDefinition[] {
           },
           required: ['date', 'time', 'attendee_email']
         }
-      };
+      });
+    } else if (r.tool_type === 'shopify_orders') {
+      tools.push(
+        {
+          name: 'shopify_lookup_order',
+          description: 'Look up live customer order details, shipping status, tracking links, and purchased items from Shopify. Use whenever the customer asks about order status, tracking, package delivery, or past purchase details.',
+          input_schema: {
+            type: 'OBJECT',
+            properties: {
+              order_id_or_number: { type: 'STRING', description: 'The order number (e.g. #1004 or 1004) or Shopify order ID' },
+              customer_email: { type: 'STRING', description: 'Customer billing or account email address' }
+            },
+            required: ['order_id_or_number']
+          }
+        },
+        {
+          name: 'shopify_cancel_unfulfilled_order',
+          description: 'Cancel an unfulfilled order in Shopify and initiate a refund. Use this when the customer explicitly requests to cancel their order and the order has not yet been shipped.',
+          input_schema: {
+            type: 'OBJECT',
+            properties: {
+              order_id: { type: 'STRING', description: 'The order ID or order number to cancel' },
+              reason: { type: 'STRING', description: 'Reason for cancellation (e.g. customer_requested, wrong_item)' }
+            },
+            required: ['order_id']
+          }
+        },
+        {
+          name: 'shopify_request_return_label',
+          description: 'Generate an authorized RMA return shipping label and portal link for an existing delivered order. Use when the customer wants to return or exchange an item.',
+          input_schema: {
+            type: 'OBJECT',
+            properties: {
+              order_id: { type: 'STRING', description: 'The order ID or order number' },
+              return_reason: { type: 'STRING', description: 'The reason for return (e.g. damaged, wrong size, changed mind)' }
+            },
+            required: ['order_id', 'return_reason']
+          }
+        }
+      );
+    } else if (r.tool_type === 'zendesk_sync') {
+      tools.push({
+        name: 'zendesk_sync_ticket',
+        description: 'Synchronize a support request and AI summary directly into external Zendesk helpdesk for human agent follow-up. Use when customer needs complex escalation or asks for a support ticket in Zendesk.',
+        input_schema: {
+          type: 'OBJECT',
+          properties: {
+            subject: { type: 'STRING', description: 'Short subject summarizing the ticket' },
+            description: { type: 'STRING', description: 'Detailed account of the issue including warm handoff summary' },
+            priority: { type: 'STRING', description: 'Ticket priority: low, normal, high, or urgent' },
+            requester_email: { type: 'STRING', description: 'Customer email address' }
+          },
+          required: ['subject', 'description']
+        }
+      });
     } else if (r.tool_type === 'database_query') {
-      return {
+      tools.push({
         name: 'query_user_account',
         description: 'Query live customer database or internal billing API to verify user state, subscription plan, payment deduction, or webhook synchronization. Use this when the user asks about payment deductions, why their plan has not upgraded, transaction history, or account status.',
         input_schema: {
@@ -44,9 +106,9 @@ function mapAgentTools(rows: any[]): ToolDefinition[] {
             query_type: { type: 'STRING', description: 'Type of query: "billing", "subscription", "payments", or "general"' }
           }
         }
-      };
+      });
     } else if (r.tool_type === 'sentry_telemetry') {
-      return {
+      tools.push({
         name: 'check_recent_telemetry_errors',
         description: 'Check Sentry or application telemetry logs for recent unhandled frontend crashes, white-screen exceptions, or 500 server errors for the user session. Use this whenever the user reports an error, crash, white screen, button not responding, or failed export.',
         input_schema: {
@@ -56,9 +118,9 @@ function mapAgentTools(rows: any[]): ToolDefinition[] {
             timeframe_minutes: { type: 'INTEGER', description: 'Time window in minutes to look back (default 15)' }
           }
         }
-      };
+      });
     } else {
-      return {
+      tools.push({
         name: 'create_support_ticket',
         description: 'Create a customer support ticket. Use this when the user requests human help, wants to talk to support, or the knowledge base does not contain the answer.',
         input_schema: {
@@ -69,9 +131,11 @@ function mapAgentTools(rows: any[]): ToolDefinition[] {
           },
           required: ['subject', 'description']
         }
-      };
+      });
     }
-  });
+  }
+
+  return tools;
 }
 
 // POST /api/v1/agents/:id/query - Execute a RAG query chat turn against the agent
@@ -154,36 +218,90 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
     conversationId = convInsert.rows[0].id;
   }
 
-  // 4. Perform RAG Vector Semantic Search with Cosine Similarity
+  // 3b. Watchtower Risk & Sentiment Circuit Breaker (Decagon Brand Defense)
+  const riskAssessment = assessRiskAndSentiment(message);
+  if (riskAssessment.circuitBreakerTriggered) {
+    console.warn(`[Watchtower ALERT] High-risk user input detected (${riskAssessment.riskCategory}): "${message}"`);
+    const brief = await generateWarmHandoffBrief(message, chatHistory, [], resolveGeminiModel(agent.llm_model));
+
+    try {
+      await query(
+        `INSERT INTO tickets (agent_id, subject, description, priority, status)
+         VALUES ($1, $2, $3, 'urgent', 'open')`,
+        [
+          agentId,
+          `[CRITICAL ${riskCheckLabel(riskAssessment.riskCategory)}] Escalation: ${message.slice(0, 50)}`,
+          `${brief.formattedBrief}\n\n---\nFull Customer Message:\n"${message}"\nTrigger Reason: ${riskAssessment.reason}`
+        ]
+      );
+    } catch (e: any) {
+      console.error('Failed to log Watchtower emergency ticket:', e.message);
+    }
+
+    // Log user & assistant messages
+    try {
+      await query(
+        `INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'user', $2), ($1, 'assistant', $3)`,
+        [conversationId, message, riskAssessment.disarmingReply!]
+      );
+    } catch (e: any) {
+      console.warn('Failed to record Watchtower message turn:', e.message);
+    }
+
+    return res.json({
+      reply: riskAssessment.disarmingReply,
+      conversation_id: conversationId,
+      confidence_score: 1.0,
+      guardrail_triggered: true,
+      is_high_risk: true,
+      risk_category: riskAssessment.riskCategory,
+      actions_taken: [{ tool_type: 'watchtower_circuit_breaker', status: 'escalated', reason: riskAssessment.reason }]
+    });
+  }
+
+  // 4. Resolve Model and Condense Multi-Turn Query (Decagon Comprehension Layer)
+  const activeModel = resolveGeminiModel(agent.llm_model || 'gemini-3.8-flash');
+  let searchOptimizedQuery = message;
+  try {
+    searchOptimizedQuery = await condenseQuery(message, chatHistory, activeModel);
+  } catch (err: any) {
+    console.warn('[QueryRoute] Failed to condense query, using raw message:', err.message);
+  }
+
+  // 5. Perform Hybrid Retrieval (Dense Semantic Vector + Sparse BM25 Keyword Search with RRF)
   let chunksText = '';
   let topSimilarity = 0;
   let retrievedChunksList: any[] = [];
-  try {
-    const userEmbedding = await generateEmbedding(message);
-    const vectorStr = `[${userEmbedding.join(',')}]`;
-    
-    const chunksResult = await query(
-      `SELECT content, 1 - (embedding <=> $2::vector) AS similarity 
-       FROM chunks 
-       WHERE agent_id = $1 
-       ORDER BY embedding <=> $2::vector 
-       LIMIT 5`,
-      [agentId, vectorStr]
-    );
+  let hasKeywordMatch = false;
 
-    if (chunksResult.rowCount && chunksResult.rowCount > 0) {
-      retrievedChunksList = chunksResult.rows;
-      topSimilarity = Math.max(0, parseFloat(chunksResult.rows[0].similarity) || 0);
-      chunksText = chunksResult.rows.map(r => r.content).join('\n---\n');
-    }
+  try {
+    const hybridResult = await performHybridSearch(agentId, searchOptimizedQuery, 5);
+    topSimilarity = hybridResult.topSimilarity;
+    hasKeywordMatch = hybridResult.hasKeywordMatch;
+    retrievedChunksList = hybridResult.chunks;
+    chunksText = hybridResult.chunksText;
   } catch (err: any) {
-    console.error('RAG vector search failed, proceeding without chunks:', err.message);
+    console.error('Hybrid search failed, proceeding without chunks:', err.message);
   }
 
-  // 5. Confidence Threshold & Guardrail Verification
-  // In 768-d vector cosine distance, a similarity >= 0.48 is a strong domain match
-  // between short user prompts and rich documentation chunks.
-  // We cap strictness at 0.50 so 56% and 69% matches pass to the LLM for deep synthesis.
+  // 6. Match Agent Operating Procedures (AOPs)
+  let customAOPs = Array.isArray(agent.config?.aops) ? [...agent.config.aops] : [];
+  try {
+    const dbAOPs = await query(
+      `SELECT name, description, trigger_keywords as keywords, mandatory_variables as "mandatoryVariables", steps, guardrails, escalation_criteria as "escalationConditions"
+       FROM agent_aops 
+       WHERE agent_id = $1 AND enabled = true`,
+      [agentId]
+    );
+    if (dbAOPs.rows && dbAOPs.rows.length > 0) {
+      customAOPs = [...customAOPs, ...dbAOPs.rows];
+    }
+  } catch (err: any) {
+    // Graceful fallback if table is newly initializing
+  }
+
+  const activeAOP = matchAOP(message, customAOPs.length > 0 ? customAOPs : undefined);
+
   const rawThreshold = agent.config?.confidenceThreshold;
   const confidenceThreshold = typeof rawThreshold === 'number'
     ? Math.min(rawThreshold, 0.50)
@@ -196,8 +314,9 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
   let guardrailTriggered = false;
   let fallbackReply = '';
 
-  // Trigger guardrail if it's a technical/domain query and similarity is genuinely low (< 48-50%)
-  if (!isGreeting && topSimilarity > 0 && topSimilarity < confidenceThreshold) {
+  // In Decagon's architecture, if there's a strong keyword match or an active AOP workflow,
+  // we do not bluntly reject solely on dense cosine score. We let the model reason and verify via the Critic.
+  if (!isGreeting && !activeAOP && !hasKeywordMatch && topSimilarity > 0 && topSimilarity < confidenceThreshold) {
     guardrailTriggered = true;
     if (fallbackMode === 'escalate_ticket') {
       const ticketSubj = `Low confidence escalation: ${message.slice(0, 60)}`;
@@ -224,15 +343,20 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
   if (guardrailTriggered) {
     finalBotReply = fallbackReply;
   } else {
-    // 6. Build prompt system instruction
+    // 7. Build prompt system instruction with AOP injection
     const basePrompt = agent.config?.systemPrompt || 
       (agent.template_type === 'sales' 
         ? 'You are a helpful sales assistant.' 
         : 'You are a helpful customer support agent.');
 
     let systemPrompt = basePrompt;
+
+    if (activeAOP) {
+      systemPrompt += `\n${formatAOPInstruction(activeAOP)}\n`;
+    }
+
     if (chunksText) {
-      systemPrompt = `${basePrompt}
+      systemPrompt = `${systemPrompt}
 
 CRITICAL KNOWLEDGE BASE INSTRUCTIONS (STRICT RAG PROTOCOL):
 You have direct access to verified product documentation and knowledge base chunks below.
@@ -247,7 +371,7 @@ ${chunksText}
 ---------------------
 `;
     } else {
-      systemPrompt = `${basePrompt}
+      systemPrompt = `${systemPrompt}
 
 NOTE ON AVAILABLE KNOWLEDGE:
 No verified documentation was retrieved for this specific query.
@@ -271,8 +395,7 @@ No verified documentation was retrieved for this specific query.
     );
     const mappedTools = mapAgentTools(toolsResult.rows);
 
-    // 8. Invoke the Gemini LLM router with agent's chosen model
-    const activeModel = resolveGeminiModel(agent.llm_model || 'gemini-3.8-flash');
+    // 8. Invoke the Gemini LLM router
     let routerResponse = await callGemini(
       systemPrompt,
       chatHistory,
@@ -281,8 +404,11 @@ No verified documentation was retrieved for this specific query.
       activeModel
     );
 
-    // If Gemini requests a tool execution, execute it and feed the output back to the model
+    // If Gemini requests tool executions, enter the multi-step reasoning loop (Decagon Chained Action Loop)
     if (routerResponse.toolCalls && routerResponse.toolCalls.length > 0) {
+      const MAX_TOOL_STEPS = 3;
+      let stepCount = 0;
+
       const geminiHistory: any[] = chatHistory.map(h => ({
         role: h.role,
         parts: [{ text: h.content }]
@@ -293,79 +419,141 @@ No verified documentation was retrieved for this specific query.
         parts: [{ text: message }]
       });
 
-      const functionCallsParts = routerResponse.toolCalls.map(tc => ({
-        functionCall: {
-          name: tc.name,
-          args: tc.input
-        }
-      }));
-
-      geminiHistory.push({
-        role: 'model',
-        parts: functionCallsParts
-      });
-
-      const functionResponseParts = [];
-      for (const toolCall of routerResponse.toolCalls) {
-        const toolRow = toolsResult.rows.find(r => {
-          if (r.tool_type === 'calendar_booking' && toolCall.name === 'book_calendar_slot') return true;
-          if (r.tool_type === 'ticket_create' && toolCall.name === 'create_support_ticket') return true;
-          if (r.tool_type === 'database_query' && toolCall.name === 'query_user_account') return true;
-          if (r.tool_type === 'sentry_telemetry' && toolCall.name === 'check_recent_telemetry_errors') return true;
-          return false;
-        });
-        const toolConfig = toolRow ? toolRow.tool_config : {};
-
-        const toolResult = await executeTool(toolCall.name, toolCall.input, { 
-          agentId, 
-          toolConfig,
-          sessionContext: user_context
-        });
-        
-        actionsTaken.push({
-          tool_type: toolCall.name,
-          status: toolResult.success ? 'success' : 'failed',
-          result: toolResult.success ? toolResult.data : { error: toolResult.error }
-        });
-
-        functionResponseParts.push({
-          functionResponse: {
-            name: toolCall.name,
-            response: toolResult.success ? toolResult.data : { error: toolResult.error }
-          }
-        });
-      }
-
-      geminiHistory.push({
-        role: 'user',
-        parts: functionResponseParts
-      });
-
-      // Call Gemini again to generate final context-grounded response
       const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-      if (GEMINI_API_KEY && GEMINI_API_KEY.trim() !== '' && !GEMINI_API_KEY.startsWith('replace_this')) {
-        try {
-          const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-          const model = genAI.getGenerativeModel({
-            model: activeModel,
-            systemInstruction: systemPrompt,
+      const hasRealGemini = GEMINI_API_KEY && GEMINI_API_KEY.trim() !== '' && !GEMINI_API_KEY.startsWith('replace_this');
+
+      while (routerResponse.toolCalls && routerResponse.toolCalls.length > 0 && stepCount < MAX_TOOL_STEPS) {
+        stepCount++;
+        const currentCalls = routerResponse.toolCalls;
+
+        const functionCallsParts = currentCalls.map(tc => ({
+          functionCall: {
+            name: tc.name,
+            args: tc.input
+          }
+        }));
+
+        geminiHistory.push({
+          role: 'model',
+          parts: functionCallsParts
+        });
+
+        const functionResponseParts = [];
+        for (const toolCall of currentCalls) {
+          const toolRow = toolsResult.rows.find(r => {
+            if (r.tool_type === 'calendar_booking' && toolCall.name === 'book_calendar_slot') return true;
+            if (r.tool_type === 'ticket_create' && toolCall.name === 'create_support_ticket') return true;
+            if (r.tool_type === 'database_query' && toolCall.name === 'query_user_account') return true;
+            if (r.tool_type === 'sentry_telemetry' && toolCall.name === 'check_recent_telemetry_errors') return true;
+            if (r.tool_type === 'shopify_orders' && toolCall.name.startsWith('shopify_')) return true;
+            if (r.tool_type === 'zendesk_sync' && toolCall.name === 'zendesk_sync_ticket') return true;
+            return false;
+          });
+          const toolConfig = toolRow ? toolRow.tool_config : {};
+
+          const toolResult = await executeTool(toolCall.name, toolCall.input, { 
+            agentId, 
+            toolConfig,
+            sessionContext: user_context
+          });
+          
+          actionsTaken.push({
+            tool_type: toolCall.name,
+            status: toolResult.success ? 'success' : 'failed',
+            result: toolResult.success ? toolResult.data : { error: toolResult.error }
           });
 
-          const finalResponse = await model.generateContent({
-            contents: geminiHistory
+          functionResponseParts.push({
+            functionResponse: {
+              name: toolCall.name,
+              response: toolResult.success ? toolResult.data : { error: toolResult.error }
+            }
           });
-
-          routerResponse.reply = finalResponse.response.text() || '';
-        } catch (err: any) {
-          console.error('Failed to get final response from Gemini tool loop:', err.message);
-          routerResponse.reply = `I have processed your request. Here are the actions taken: ${JSON.stringify(actionsTaken)}`;
         }
-      } else {
-        routerResponse.reply = `[Mock Final AI Response] Successfully executed action: ${JSON.stringify(actionsTaken.map(a => a.tool_type))}.`;
+
+        geminiHistory.push({
+          role: 'user',
+          parts: functionResponseParts
+        });
+
+        // Call Gemini again with the tool declarations so it can decide whether to execute next tool or synthesize final reply
+        if (hasRealGemini) {
+          try {
+            const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
+            const declaration = mappedTools.length > 0 ? {
+              functionDeclarations: mappedTools.map(t => ({
+                name: t.name,
+                description: t.description,
+                parameters: t.input_schema
+              }))
+            } : undefined;
+
+            const model = genAI.getGenerativeModel({
+              model: activeModel,
+              systemInstruction: systemPrompt,
+            });
+
+            const nextStepResponse = await model.generateContent({
+              contents: geminiHistory,
+              tools: declaration ? [declaration] : undefined
+            });
+
+            const subsequentFunctionCalls = nextStepResponse.response.functionCalls();
+            if (subsequentFunctionCalls && subsequentFunctionCalls.length > 0 && stepCount < MAX_TOOL_STEPS) {
+              routerResponse.toolCalls = subsequentFunctionCalls.map(fc => ({
+                name: fc.name,
+                input: fc.args
+              }));
+              routerResponse.reply = nextStepResponse.response.text() || '';
+            } else {
+              routerResponse.reply = nextStepResponse.response.text() || '';
+              routerResponse.toolCalls = [];
+            }
+          } catch (err: any) {
+            console.error('[Decagon Loop] Tool reasoning step failed:', err.message);
+            routerResponse.reply = routerResponse.reply || `I have processed your request. Actions taken: ${JSON.stringify(actionsTaken)}`;
+            break;
+          }
+        } else {
+          routerResponse.reply = `[Mock Final AI Response] Successfully executed action: ${JSON.stringify(actionsTaken.map(a => a.tool_type))}.`;
+          routerResponse.toolCalls = [];
+        }
       }
     }
 
     finalBotReply = routerResponse.reply;
+
+    // 8b. Real-time Grounding Critic (Decagon Verifier Layer)
+    // If we have verified chunks and the bot generated an answer without executing actions,
+    // verify that the answer does not assert ungrounded hallucinations.
+    if (chunksText && actionsTaken.length === 0 && !isGreeting) {
+      try {
+        const criticResult = await evaluateGrounding(
+          finalBotReply,
+          retrievedChunksList.map((c: any) => c.content),
+          message,
+          activeModel
+        );
+
+        if (criticResult.hasHallucinations && criticResult.confidenceScore < 0.6) {
+          console.warn('[Decagon Critic] Detected hallucination in candidate reply:', criticResult.unsupportedClaims);
+          if (fallbackMode === 'escalate_ticket') {
+            guardrailTriggered = true;
+            finalBotReply = `I want to ensure 100% precision with your request. Rather than provide unverified details, I have opened a high-priority ticket for our technical specialists to confirm this with you directly.`;
+            await query(
+              `INSERT INTO tickets (agent_id, subject, description, status) VALUES ($1, $2, $3, 'open')`,
+              [
+                agentId,
+                `Grounding Check Escalation: ${message.slice(0, 50)}`,
+                `User query: "${message}"\nCritic detected unverified claims: ${criticResult.unsupportedClaims.join(', ')}\nCandidate response was withheld.`
+              ]
+            ).catch(e => console.warn('Failed to insert critic ticket:', e.message));
+          }
+        }
+      } catch (err: any) {
+        console.warn('[GroundingCritic] Evaluation pass skipped:', err.message);
+      }
+    }
   }
 
   // 9. If agent is in Copilot/Shadow mode, save response as a draft for human review

@@ -90,19 +90,54 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_agent ON chunks(agent_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks USING ivfflat (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_chunks_fts ON chunks USING gin(to_tsvector('english', content));
 
 -- Connected action tools (per agent)
 CREATE TABLE IF NOT EXISTS agent_tools (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-  tool_type TEXT NOT NULL CHECK (tool_type IN ('calendar_booking', 'ticket_create', 'database_query', 'sentry_telemetry', 'github_pr', 'code_sandbox', 'handoff_agent')),
+  tool_type TEXT NOT NULL CHECK (tool_type IN ('calendar_booking', 'ticket_create', 'database_query', 'sentry_telemetry', 'github_pr', 'code_sandbox', 'handoff_agent', 'shopify_orders', 'zendesk_sync')),
   tool_config JSONB NOT NULL DEFAULT '{}',
   enabled BOOLEAN DEFAULT true
 );
 ALTER TABLE agent_tools DROP CONSTRAINT IF EXISTS agent_tools_tool_type_check;
 ALTER TABLE agent_tools ADD CONSTRAINT agent_tools_tool_type_check 
-  CHECK (tool_type IN ('calendar_booking', 'ticket_create', 'database_query', 'sentry_telemetry', 'github_pr', 'code_sandbox', 'handoff_agent'));
+  CHECK (tool_type IN ('calendar_booking', 'ticket_create', 'database_query', 'sentry_telemetry', 'github_pr', 'code_sandbox', 'handoff_agent', 'shopify_orders', 'zendesk_sync'));
 CREATE INDEX IF NOT EXISTS idx_agent_tools_agent ON agent_tools(agent_id);
+
+-- Agent Operating Procedures (AOPs)
+CREATE TABLE IF NOT EXISTS agent_aops (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  trigger_keywords TEXT[] NOT NULL DEFAULT '{}',
+  mandatory_variables TEXT[] NOT NULL DEFAULT '{}',
+  steps TEXT[] NOT NULL DEFAULT '{}',
+  guardrails TEXT[] NOT NULL DEFAULT '{}',
+  escalation_criteria TEXT[] NOT NULL DEFAULT '{}',
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  version INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_aops_agent ON agent_aops(agent_id);
+
+-- Duet Active Learning Knowledge Gaps
+CREATE TABLE IF NOT EXISTS duet_knowledge_gaps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  topic_title TEXT NOT NULL,
+  frequency INT NOT NULL DEFAULT 1,
+  sample_queries TEXT[] NOT NULL DEFAULT '{}',
+  impact_score TEXT NOT NULL DEFAULT 'medium',
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'dismissed')),
+  draft_content TEXT NOT NULL,
+  suggested_aop JSONB,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  resolved_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_duet_gaps_agent ON duet_knowledge_gaps(agent_id);
 
 -- Action log (audit trail)
 CREATE TABLE IF NOT EXISTS action_logs (

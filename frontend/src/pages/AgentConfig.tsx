@@ -8,7 +8,7 @@ import {
   ArrowLeft, Loader, Copy, Check, Trash2,
   FileUp, X, ShieldCheck, UserCheck, GitPullRequest,
   Database, Activity, Calendar, Ticket, ChevronDown, ChevronUp, SlidersHorizontal,
-  Zap, Cpu, Sparkles, Info, MessageSquare
+  Zap, Cpu, Sparkles, Info, MessageSquare, Workflow, ShoppingBag, LifeBuoy
 } from 'lucide-react';
 import Toggle from '../components/ui/Toggle';
 import Badge from '../components/ui/Badge';
@@ -18,6 +18,8 @@ import EvaluationSuite from '../components/agent/EvaluationSuite';
 import CopilotQueue from '../components/agent/CopilotQueue';
 import AutoFixDashboard from '../components/agent/AutoFixDashboard';
 import AgentConversations from '../components/agent/AgentConversations';
+import AOPStudio from '../components/agent/AOPStudio';
+import DuetInsights from '../components/agent/DuetInsights';
 
 export interface ModelOption {
   id: string;
@@ -216,7 +218,7 @@ interface Agent {
 
 interface Tool {
   id: string;
-  tool_type: 'calendar_booking' | 'ticket_create' | 'database_query' | 'sentry_telemetry';
+  tool_type: 'calendar_booking' | 'ticket_create' | 'database_query' | 'sentry_telemetry' | 'shopify_orders' | 'zendesk_sync' | string;
   enabled: boolean;
   tool_config: any;
 }
@@ -241,7 +243,7 @@ export default function AgentConfig() {
   const currentWs = workspaces.find(w => w.id === wsId);
   const wsName = currentWs?.client_name || 'Workspace';
 
-  const [activeTab, setActiveTab] = useState<'settings' | 'tools' | 'ingestion' | 'evaluation' | 'copilot' | 'autofix' | 'widget' | 'conversations'>('settings');
+  const [activeTab, setActiveTab] = useState<'settings' | 'aops' | 'duet' | 'tools' | 'ingestion' | 'evaluation' | 'copilot' | 'autofix' | 'widget' | 'conversations'>('settings');
   const [agent, setAgent] = useState<Agent | null>(null);
   const [tools, setTools] = useState<Tool[]>([]);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
@@ -596,6 +598,30 @@ export default function AgentConfig() {
           >
             <Settings size={18} />
             <span>Agent Settings</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('aops')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'aops' ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Workflow size={18} />
+              <span>Procedures (AOP)</span>
+            </div>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded">Decagon</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('duet')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'duet' ? 'bg-purple-50 text-purple-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Sparkles size={18} />
+              <span>Duet Discovery</span>
+            </div>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded">Active Learning</span>
           </button>
           <button
             onClick={() => setActiveTab('tools')}
@@ -970,6 +996,16 @@ export default function AgentConfig() {
               </form>
             )}
 
+            {/* TAB: Agent Operating Procedures (AOP) Studio */}
+            {activeTab === 'aops' && (
+              <AOPStudio agentId={agentId!} />
+            )}
+
+            {/* TAB: Duet Active Learning & Knowledge Discovery */}
+            {activeTab === 'duet' && (
+              <DuetInsights agentId={agentId!} />
+            )}
+
             {/* TAB 2: Agent Tools */}
             {activeTab === 'tools' && (
               <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
@@ -996,6 +1032,8 @@ export default function AgentConfig() {
                               {tool.tool_type === 'sentry_telemetry' && <Activity className="text-rose-600" size={20} />}
                               {tool.tool_type === 'calendar_booking' && <Calendar className="text-blue-600" size={20} />}
                               {tool.tool_type === 'ticket_create' && <Ticket className="text-amber-600" size={20} />}
+                              {tool.tool_type === 'shopify_orders' && <ShoppingBag className="text-emerald-600" size={20} />}
+                              {tool.tool_type === 'zendesk_sync' && <LifeBuoy className="text-orange-600" size={20} />}
                             </div>
 
                             <div className="space-y-1">
@@ -1004,18 +1042,22 @@ export default function AgentConfig() {
                                 {tool.tool_type === 'sentry_telemetry' && 'Sentry & Error Telemetry Connector'}
                                 {tool.tool_type === 'calendar_booking' && 'Cal.com Meeting Scheduler'}
                                 {tool.tool_type === 'ticket_create' && 'Automated Support Ticket Escalation'}
+                                {tool.tool_type === 'shopify_orders' && 'Shopify 2-Way Order & Return Management'}
+                                {tool.tool_type === 'zendesk_sync' && 'Zendesk 2-Way Helpdesk Sync'}
                               </div>
                               <p className="text-xs text-slate-500 max-w-xl">
                                 {tool.tool_type === 'database_query' && 'Queries live customer database or internal billing API to verify user state, subscription plan, payment deduction, or webhook synchronization.'}
                                 {tool.tool_type === 'sentry_telemetry' && 'Queries Sentry or application telemetry logs for recent unhandled frontend crashes, white screens, or server exceptions to diagnose bugs.'}
                                 {tool.tool_type === 'calendar_booking' && 'Allows scheduling calendar calls directly from chat when sales demos or high-touch onboarding are requested.'}
                                 {tool.tool_type === 'ticket_create' && 'Submits formal escalated tickets into database system when support requests are not resolvable.'}
+                                {tool.tool_type === 'shopify_orders' && 'Allows the agent to look up live orders, tracking numbers, cancel unfulfilled orders, and generate RMA return portal links.'}
+                                {tool.tool_type === 'zendesk_sync' && 'Synchronizes escalated customer inquiries and warm AI briefings into Zendesk with tags and priority.'}
                               </p>
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-3">
-                            {(tool.tool_type === 'database_query' || tool.tool_type === 'sentry_telemetry') && (
+                            {(tool.tool_type === 'database_query' || tool.tool_type === 'sentry_telemetry' || tool.tool_type === 'shopify_orders' || tool.tool_type === 'zendesk_sync') && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1112,6 +1154,78 @@ export default function AgentConfig() {
                                 </div>
                                 <p className="text-[10px] text-slate-400">
                                   When Sentry credentials are not configured, KromaDesk synthesizes realistic crash traces for white-screen testing.
+                                </p>
+                              </div>
+                            )}
+
+                            {tool.tool_type === 'shopify_orders' && (
+                              <div className="space-y-3">
+                                <div className="text-xs font-bold text-slate-700">Shopify Store Credentials:</div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Store Domain</label>
+                                    <input
+                                      type="text"
+                                      value={toolConfigDraft.shopify_store_domain || ''}
+                                      onChange={(e) => setToolConfigDraft({ ...toolConfigDraft, shopify_store_domain: e.target.value })}
+                                      placeholder="acme-store.myshopify.com"
+                                      className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white text-slate-800"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Admin Access Token</label>
+                                    <input
+                                      type="password"
+                                      value={toolConfigDraft.shopify_access_token || ''}
+                                      onChange={(e) => setToolConfigDraft({ ...toolConfigDraft, shopify_access_token: e.target.value })}
+                                      placeholder="shpat_..."
+                                      className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white text-slate-800"
+                                    />
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-slate-400">
+                                  Leave blank to automatically simulate realistic live order tracking, cancellations, and return labels in Sandbox mode.
+                                </p>
+                              </div>
+                            )}
+
+                            {tool.tool_type === 'zendesk_sync' && (
+                              <div className="space-y-3">
+                                <div className="text-xs font-bold text-slate-700">Zendesk Helpdesk Credentials:</div>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Zendesk Subdomain</label>
+                                    <input
+                                      type="text"
+                                      value={toolConfigDraft.zendesk_subdomain || ''}
+                                      onChange={(e) => setToolConfigDraft({ ...toolConfigDraft, zendesk_subdomain: e.target.value })}
+                                      placeholder="acme-support"
+                                      className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white text-slate-800"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Agent Email</label>
+                                    <input
+                                      type="email"
+                                      value={toolConfigDraft.zendesk_email || ''}
+                                      onChange={(e) => setToolConfigDraft({ ...toolConfigDraft, zendesk_email: e.target.value })}
+                                      placeholder="support@acme.com"
+                                      className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white text-slate-800"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 mb-1">API Token</label>
+                                    <input
+                                      type="password"
+                                      value={toolConfigDraft.zendesk_api_token || ''}
+                                      onChange={(e) => setToolConfigDraft({ ...toolConfigDraft, zendesk_api_token: e.target.value })}
+                                      placeholder="token..."
+                                      className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white text-slate-800"
+                                    />
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-slate-400">
+                                  Synchronizes warm transfer briefs, priorities, and tags directly into Zendesk on escalation.
                                 </p>
                               </div>
                             )}
