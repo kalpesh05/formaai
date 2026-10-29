@@ -87,8 +87,17 @@ export function resolveGeminiModel(inputModel?: string): string {
     return 'gemini-3.8-flash';
   }
 
+  if (clean.includes('argon') || clean.includes('4-')) {
+    return 'gemini-3.1-pro-preview';
+  }
   if (clean.includes('3.8')) {
     return 'gemini-3.8-flash';
+  }
+  if (clean.includes('3.6')) {
+    return 'gemini-3.6-flash';
+  }
+  if (clean.includes('3.5-flash-lite')) {
+    return 'gemini-3.5-flash-lite';
   }
   if (clean.includes('3.5')) {
     return 'gemini-3.5-flash';
