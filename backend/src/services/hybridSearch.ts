@@ -128,11 +128,26 @@ export async function performHybridSearch(
       rrfScore: data.rrf
     }))
     .sort((a, b) => (b.rrfScore || 0) - (a.rrfScore || 0))
-    .slice(0, limit);
+    .slice(0, Math.min(limit, 4));
 
   const topSimilarity = vectorChunks.length > 0 ? vectorChunks[0].similarity : 0;
   const hasKeywordMatch = keywordChunks.length > 0;
-  const chunksText = combined.map(c => c.content).join('\n---\n');
+
+  // Strict Token Budgeting for RAG Context:
+  // Cap individual chunks to max 1,200 chars and total chunksText to max 3,600 chars (~800 tokens).
+  // This prevents prompt inflation, avoids 413 / TPM rate limits on Groq, and prevents Gemini timeouts.
+  let totalLength = 0;
+  const budgetedChunks: string[] = [];
+  for (const c of combined) {
+    if (totalLength >= 3600) break;
+    let snippet = (c.content || '').trim();
+    if (snippet.length > 1200) {
+      snippet = snippet.substring(0, 1200) + '...';
+    }
+    budgetedChunks.push(snippet);
+    totalLength += snippet.length;
+  }
+  const chunksText = budgetedChunks.join('\n---\n');
 
   return {
     chunks: combined,

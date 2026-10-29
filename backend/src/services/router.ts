@@ -169,7 +169,7 @@ export async function callGemini(
   const candidateModels = getGeminiCandidates(modelName);
 
   let lastError: any = null;
-  const ATTEMPT_TIMEOUT_MS = 8000;
+  const ATTEMPT_TIMEOUT_MS = 12000;
 
   for (const candidate of candidateModels) {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -233,21 +233,31 @@ export async function callGroq(
   history: ChatMessage[],
   newMessage: string,
   tools?: ToolDefinition[],
-  modelName: string = 'openai/gpt-oss-120b'
+  modelName: string = 'llama-3.3-70b-versatile'
 ): Promise<RouterResponse> {
   if (!GROQ_API_KEY || GROQ_API_KEY.trim() === '') {
     return callMockRouter(newMessage);
   }
 
-  const messages: { role: string; content: string }[] = [];
-  if (systemPrompt && systemPrompt.trim()) {
-    messages.push({ role: 'system', content: systemPrompt });
+  // Token Safeguard: Cap system prompt to max 6,000 chars (~1,500 tokens)
+  // to avoid hitting Groq on-demand / free tier TPM limits
+  let safeSystemPrompt = systemPrompt || '';
+  if (safeSystemPrompt.length > 6000) {
+    safeSystemPrompt = safeSystemPrompt.substring(0, 6000) + '\n[Prompt budgeted for latency]';
   }
 
-  for (const h of history) {
+  const messages: { role: string; content: string }[] = [];
+  if (safeSystemPrompt.trim()) {
+    messages.push({ role: 'system', content: safeSystemPrompt });
+  }
+
+  // Keep recent conversational history (up to last 6 turns) to conserve token budget
+  const safeHistory = history.slice(-6);
+  for (const h of safeHistory) {
+    const content = (h.content || '').length > 1000 ? h.content.substring(0, 1000) + '...' : h.content;
     messages.push({
       role: h.role === 'model' ? 'assistant' : 'user',
-      content: h.content
+      content
     });
   }
 
@@ -283,10 +293,11 @@ export async function callGroq(
   }
 
   const candidateModels = [
-    modelName && !modelName.startsWith('gemini') ? modelName : 'openai/gpt-oss-120b',
+    modelName && !modelName.startsWith('gemini') ? modelName : 'llama-3.3-70b-versatile',
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
     'openai/gpt-oss-120b',
-    'openai/gpt-oss-20b',
-    'qwen/qwen3.8-27b'
+    'openai/gpt-oss-20b'
   ].filter((m, idx, arr) => arr.indexOf(m) === idx);
 
   let lastError: any = null;
@@ -386,7 +397,7 @@ export async function routeQuery(
       if (isMock && GROQ_API_KEY) {
         console.info('[Router] Gemini returned fallback placeholder; seamlessly failing over to Groq LPU...');
         try {
-          return await callGroq(systemPrompt, history, newMessage, tools, 'openai/gpt-oss-120b');
+          return await callGroq(systemPrompt, history, newMessage, tools, 'llama-3.3-70b-versatile');
         } catch {}
       }
       return geminiRes;
@@ -394,7 +405,7 @@ export async function routeQuery(
       console.warn('[Router] Gemini failed, failing over to Groq LPU:', err.message);
       if (GROQ_API_KEY) {
         try {
-          return await callGroq(systemPrompt, history, newMessage, tools, 'openai/gpt-oss-120b');
+          return await callGroq(systemPrompt, history, newMessage, tools, 'llama-3.3-70b-versatile');
         } catch (groqErr: any) {
           console.error('[Router] Both Gemini and Groq failover failed:', groqErr.message);
         }

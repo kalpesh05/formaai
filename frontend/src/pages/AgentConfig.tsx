@@ -37,22 +37,46 @@ export interface ModelOption {
 export const PROVIDER_MODELS: Record<string, ModelOption[]> = {
   groq: [
     {
+      id: 'llama-3.3-70b-versatile',
+      name: 'Llama 3.3 70B (Groq)',
+      badge: 'Recommended · 128K Context',
+      badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      speed: '~220ms (Ultra-Low Latency)',
+      speedRating: 5,
+      reasoning: 'Superior (Frontier Intelligence & Tool Calling)',
+      cost: 'Cost-Effective High Throughput',
+      outputDescription: 'Meta\'s latest flagship open-weights model running on Groq LPUs. 128K context window, phenomenal reasoning, and instant native tool execution.',
+      bestFor: 'Production Customer Support, Sales Conversational Agents & Complex Knowledge Bases'
+    },
+    {
+      id: 'llama-3.1-8b-instant',
+      name: 'Llama 3.1 8B Instant (Groq)',
+      badge: 'Lightning Speed · 800+ tok/s',
+      badgeStyle: 'bg-amber-50 text-amber-700 border-amber-200',
+      speed: '~90ms (Instantaneous)',
+      speedRating: 5,
+      reasoning: 'High (Fast FAQ & Routing)',
+      cost: 'Lowest Cost · 30K TPM',
+      outputDescription: 'Blazingly fast 8B model running at over 800 tokens/second on Groq hardware. Perfect for high-frequency chat deflection and low-latency widget queries.',
+      bestFor: 'High-frequency live chat widgets, fast intent detection, and instant lead triage'
+    },
+    {
       id: 'openai/gpt-oss-120b',
       name: 'GPT OSS 120B (Groq)',
-      badge: 'Recommended · Frontier LPU Inference',
-      badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      badge: 'Frontier LPU Inference',
+      badgeStyle: 'bg-purple-50 text-purple-700 border-purple-200',
       speed: '~180ms (Ultra-Low Latency)',
       speedRating: 5,
       reasoning: 'Superior (Native Tool Calling & Deep Logic)',
-      cost: 'Cost-Effective High Throughput',
+      cost: 'Standard On-Demand',
       outputDescription: 'Flagship open architecture deployed on Groq LPUs. Exceptional reasoning, zero token lag, and instant native tool execution.',
       bestFor: 'Production Customer Support, Sales Conversational Agents & Live Embedded Chat'
     },
     {
       id: 'openai/gpt-oss-20b',
       name: 'GPT OSS 20B (Groq)',
-      badge: 'Lightning Speed · 110ms',
-      badgeStyle: 'bg-amber-50 text-amber-700 border-amber-200',
+      badge: 'High Frequency',
+      badgeStyle: 'bg-blue-50 text-blue-700 border-blue-200',
       speed: '~110ms (Instantaneous)',
       speedRating: 5,
       reasoning: 'High (Fast FAQ & Routing)',
@@ -64,7 +88,7 @@ export const PROVIDER_MODELS: Record<string, ModelOption[]> = {
       id: 'qwen/qwen3.8-27b',
       name: 'Qwen 3.8 27B (Groq)',
       badge: 'Balanced Reasoning',
-      badgeStyle: 'bg-blue-50 text-blue-700 border-blue-200',
+      badgeStyle: 'bg-indigo-50 text-indigo-700 border-indigo-200',
       speed: '~220ms',
       speedRating: 5,
       reasoning: 'High',
@@ -746,7 +770,7 @@ export default function AgentConfig() {
                       onChange={(e) => {
                         const newProv = e.target.value;
                         setProvider(newProv);
-                        if (newProv === 'groq') setModel('openai/gpt-oss-120b');
+                        if (newProv === 'groq') setModel('llama-3.3-70b-versatile');
                         else if (newProv === 'gemini') setModel('gemini-3.8-flash');
                         else if (newProv === 'openai') setModel('gpt-4o-mini');
                         else if (newProv === 'anthropic') setModel('claude-3-5-sonnet');
