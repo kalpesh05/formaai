@@ -609,7 +609,7 @@ export default function AgentConfig() {
               <Workflow size={18} />
               <span>Procedures (AOP)</span>
             </div>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded">Decagon</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded">Enterprise</span>
           </button>
           <button
             onClick={() => setActiveTab('duet')}

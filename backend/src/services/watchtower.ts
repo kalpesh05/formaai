@@ -32,7 +32,7 @@ const HOSTILITY_PATTERNS = [
 ];
 
 /**
- * Decagon Watchtower: Real-time risk detection and circuit breaker.
+ * Watchtower: Real-time risk detection and circuit breaker.
  * Evaluates inbound customer turns before AI generation to prevent brand disasters,
  * legal exposure, or infuriating high-churn customers.
  */
@@ -89,7 +89,7 @@ export function assessRiskAndSentiment(message: string): WatchtowerRiskAssessmen
 }
 
 /**
- * Generates an automated Decagon-grade 3-bullet AI briefing for human agents
+ * Generates an automated enterprise 3-bullet AI briefing for human agents
  * when an escalation or handoff occurs.
  */
 export async function generateWarmHandoffBrief(

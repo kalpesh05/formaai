@@ -12,7 +12,7 @@ export interface GroundingCheckResult {
  * Enterprise Grounding Critic & Hallucination Guard.
  * Evaluates candidate responses against retrieved knowledge base chunks.
  * 
- * Inspired by Decagon AI's real-time LLM-as-a-judge evaluation layer.
+ * Real-time LLM-as-a-judge evaluation layer.
  */
 export async function evaluateGrounding(
   candidateAnswer: string,

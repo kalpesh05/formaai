@@ -115,7 +115,7 @@ export default function DuetInsights({ agentId }: DuetInsightsProps) {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Inspired by Decagon Duet. Automatically scans live conversations and tickets, clusters unanswered topics, and drafts solutions for 1-click deployment.
+            Autonomous Active Learning. Scans live conversations and tickets, clusters unanswered topics, and drafts solutions for 1-click deployment.
           </p>
         </div>
 

@@ -38,7 +38,7 @@ export async function ensureDuetTable() {
 }
 
 /**
- * Runs Decagon Duet Active Learning analysis on an agent's chat transcripts,
+ * Runs Active Learning analysis on an agent's chat transcripts,
  * tickets, and low-confidence escalations.
  */
 export async function runDuetAnalysis(agentId: string): Promise<DiscoveredGap[]> {
@@ -86,7 +86,7 @@ export async function runDuetAnalysis(agentId: string): Promise<DiscoveredGap[]>
 4. "Why was I charged sales tax when my company is exempt?"
 5. "Can we pay via wire transfer or SEPA direct debit instead of credit card?"`;
 
-  const clusteringPrompt = `You are "Duet", an autonomous Active Learning and Knowledge Discovery system for enterprise customer support (inspired by Decagon AI).
+  const clusteringPrompt = `You are an autonomous Active Learning and Knowledge Discovery system for enterprise customer support.
 
 Your task is to analyze production support inquiries and identify UNRESOLVED KNOWLEDGE GAPS (questions customers ask that typically lack direct documentation or require clear policy guides).
 
@@ -125,7 +125,7 @@ Respond in strict JSON format:
 
   try {
     const res = await callGemini(
-      'You are Decagon Duet. Output valid JSON only.',
+      'You are an autonomous Active Learning engine. Output valid JSON only.',
       [],
       clusteringPrompt,
       undefined,

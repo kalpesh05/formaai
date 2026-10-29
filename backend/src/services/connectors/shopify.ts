@@ -20,7 +20,7 @@ export interface ShopifyToolConfig {
 }
 
 /**
- * Decagon-grade 2-Way Shopify Connector:
+ * Enterprise 2-Way Shopify Connector:
  * Looks up live order status, tracking links, and line item delivery states.
  */
 export async function handleShopifyLookupOrder(

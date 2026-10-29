@@ -117,7 +117,7 @@ export default function AOPStudio({ agentId }: AOPStudioProps) {
     try {
       const res = await apiRequest(`/agents/${agentId}/aops/seed-defaults`, 'POST');
       setAops(res.aops || []);
-      setSuccessMsg('Default Decagon-style enterprise procedures loaded successfully.');
+      setSuccessMsg('Default enterprise procedures loaded successfully.');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to seed default procedures');
     } finally {
@@ -176,7 +176,7 @@ export default function AOPStudio({ agentId }: AOPStudioProps) {
             </div>
             <h2 className="text-base font-bold text-slate-800">Agent Operating Procedures (AOP) Studio</h2>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Decagon Core
+              Enterprise SOP
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">

@@ -4,7 +4,7 @@ import { callGemini, ChatMessage } from './router';
  * Rewrites a follow-up user query into a standalone, search-optimized query
  * that preserves context from prior turns in the conversation.
  * 
- * Inspired by Decagon AI's multi-turn conversational comprehension layer.
+ * Multi-turn conversational comprehension layer.
  */
 export async function condenseQuery(
   currentMessage: string,

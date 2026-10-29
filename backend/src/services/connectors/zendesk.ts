@@ -13,7 +13,7 @@ export interface ZendeskToolConfig {
 }
 
 /**
- * Decagon-grade 2-Way Zendesk / Helpdesk Sync:
+ * Enterprise 2-Way Zendesk / Helpdesk Sync:
  * Creates and updates external tickets with full conversation briefing and tags.
  */
 export async function handleZendeskTicketSync(

@@ -218,7 +218,7 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
     conversationId = convInsert.rows[0].id;
   }
 
-  // 3b. Watchtower Risk & Sentiment Circuit Breaker (Decagon Brand Defense)
+  // 3b. Watchtower Risk & Sentiment Circuit Breaker (Brand Defense)
   const riskAssessment = assessRiskAndSentiment(message);
   if (riskAssessment.circuitBreakerTriggered) {
     console.warn(`[Watchtower ALERT] High-risk user input detected (${riskAssessment.riskCategory}): "${message}"`);
@@ -259,7 +259,7 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
     });
   }
 
-  // 4. Resolve Model and Condense Multi-Turn Query (Decagon Comprehension Layer)
+  // 4. Resolve Model and Condense Multi-Turn Query (Comprehension Layer)
   const activeModel = resolveGeminiModel(agent.llm_model || 'gemini-3.8-flash');
   let searchOptimizedQuery = message;
   try {
@@ -314,7 +314,7 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
   let guardrailTriggered = false;
   let fallbackReply = '';
 
-  // In Decagon's architecture, if there's a strong keyword match or an active AOP workflow,
+  // If there's a strong keyword match or an active AOP workflow,
   // we do not bluntly reject solely on dense cosine score. We let the model reason and verify via the Critic.
   if (!isGreeting && !activeAOP && !hasKeywordMatch && topSimilarity > 0 && topSimilarity < confidenceThreshold) {
     guardrailTriggered = true;
@@ -404,7 +404,7 @@ No verified documentation was retrieved for this specific query.
       activeModel
     );
 
-    // If Gemini requests tool executions, enter the multi-step reasoning loop (Decagon Chained Action Loop)
+    // If Gemini requests tool executions, enter the multi-step reasoning loop (Chained Action Loop)
     if (routerResponse.toolCalls && routerResponse.toolCalls.length > 0) {
       const MAX_TOOL_STEPS = 3;
       let stepCount = 0;
@@ -510,7 +510,7 @@ No verified documentation was retrieved for this specific query.
               routerResponse.toolCalls = [];
             }
           } catch (err: any) {
-            console.error('[Decagon Loop] Tool reasoning step failed:', err.message);
+            console.error('[Action Loop] Tool reasoning step failed:', err.message);
             routerResponse.reply = routerResponse.reply || `I have processed your request. Actions taken: ${JSON.stringify(actionsTaken)}`;
             break;
           }
@@ -523,7 +523,7 @@ No verified documentation was retrieved for this specific query.
 
     finalBotReply = routerResponse.reply;
 
-    // 8b. Real-time Grounding Critic (Decagon Verifier Layer)
+    // 8b. Real-time Grounding Critic (Verifier Layer)
     // If we have verified chunks and the bot generated an answer without executing actions,
     // verify that the answer does not assert ungrounded hallucinations.
     if (chunksText && actionsTaken.length === 0 && !isGreeting) {
@@ -536,7 +536,7 @@ No verified documentation was retrieved for this specific query.
         );
 
         if (criticResult.hasHallucinations && criticResult.confidenceScore < 0.6) {
-          console.warn('[Decagon Critic] Detected hallucination in candidate reply:', criticResult.unsupportedClaims);
+          console.warn('[Grounding Critic] Detected hallucination in candidate reply:', criticResult.unsupportedClaims);
           if (fallbackMode === 'escalate_ticket') {
             guardrailTriggered = true;
             finalBotReply = `I want to ensure 100% precision with your request. Rather than provide unverified details, I have opened a high-priority ticket for our technical specialists to confirm this with you directly.`;
