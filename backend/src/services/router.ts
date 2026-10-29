@@ -117,9 +117,8 @@ export function getGeminiCandidates(requestedModelName?: string): string[] {
   const fallbacks = [
     resolved,
     'gemini-3.8-flash',
-    'gemini-3.5-flash',
-    'gemini-3.1-pro-preview',
-    'gemini-2.5-flash'
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash'
   ];
   return Array.from(new Set(fallbacks));
 }
@@ -172,42 +171,51 @@ export async function callGemini(
   const ATTEMPT_TIMEOUT_MS = 8000;
 
   for (const candidate of candidateModels) {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: candidate,
-        systemInstruction: systemPrompt,
-      });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: candidate,
+          systemInstruction: systemPrompt,
+        });
 
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout after ${ATTEMPT_TIMEOUT_MS}ms for model '${candidate}'`)), ATTEMPT_TIMEOUT_MS)
-      );
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout after ${ATTEMPT_TIMEOUT_MS}ms for model '${candidate}'`)), ATTEMPT_TIMEOUT_MS)
+        );
 
-      const response = await Promise.race([
-        model.generateContent({
-          contents,
-          tools: declaration ? [declaration] : undefined,
-        }),
-        timeoutPromise
-      ]);
+        const response = await Promise.race([
+          model.generateContent({
+            contents,
+            tools: declaration ? [declaration] : undefined,
+          }),
+          timeoutPromise
+        ]);
 
-      const reply = response.response.text() || '';
-      const toolCalls: { name: string; input: any }[] = [];
+        const reply = response.response.text() || '';
+        const toolCalls: { name: string; input: any }[] = [];
 
-      // Parse native function calls from Gemini output
-      const functionCalls = response.response.functionCalls();
-      if (functionCalls && functionCalls.length > 0) {
-        for (const fc of functionCalls) {
-          toolCalls.push({
-            name: fc.name,
-            input: fc.args
-          });
+        // Parse native function calls from Gemini output
+        const functionCalls = response.response.functionCalls();
+        if (functionCalls && functionCalls.length > 0) {
+          for (const fc of functionCalls) {
+            toolCalls.push({
+              name: fc.name,
+              input: fc.args
+            });
+          }
         }
-      }
 
-      return { reply, toolCalls };
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`[KromaDesk] Gemini model '${candidate}' invocation failed: ${err.message}. Trying next candidate...`);
+        return { reply, toolCalls };
+      } catch (err: any) {
+        lastError = err;
+        const isTransient = err.message?.includes('503') || err.message?.includes('high demand') || err.message?.includes('429');
+        if (isTransient && attempt === 0) {
+          console.warn(`[KromaDesk] Gemini model '${candidate}' hit transient spike (${err.message}). Retrying in 700ms...`);
+          await new Promise(res => setTimeout(res, 700));
+          continue;
+        }
+        console.warn(`[KromaDesk] Gemini model '${candidate}' invocation failed: ${err.message}. Trying next candidate...`);
+        break;
+      }
     }
   }
 

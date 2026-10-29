@@ -14,12 +14,18 @@ export async function condenseQuery(
   const cleanMessage = currentMessage.trim();
   
   // If there's no history or message is just a basic greeting, return as is
-  if (!history || history.length === 0) {
+  if (!history || history.length < 2) {
     return cleanMessage;
   }
 
   // If message is obviously a standalone greeting or exit, don't rewrite
   if (/^(hi|hello|hey|good morning|good evening|thanks|thank you|bye)\b/i.test(cleanMessage)) {
+    return cleanMessage;
+  }
+
+  // If message does not contain ambiguous referential pronouns, it is already standalone
+  const hasAmbiguousPronouns = /\b(it|that|this|they|them|those|these|its|the former|the latter)\b/i.test(cleanMessage);
+  if (!hasAmbiguousPronouns) {
     return cleanMessage;
   }
 

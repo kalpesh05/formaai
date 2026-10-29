@@ -532,9 +532,8 @@ No verified documentation was retrieved for this specific query.
     finalBotReply = routerResponse.reply;
 
     // 8b. Real-time Grounding Critic (Verifier Layer)
-    // If we have verified chunks and the bot generated an answer without executing actions,
-    // verify that the answer does not assert ungrounded hallucinations.
-    if (chunksText && actionsTaken.length === 0 && !isGreeting) {
+    // Runs when explicitly enabled in agent advanced configuration to conserve API rate limits on standard tiers
+    if (chunksText && actionsTaken.length === 0 && !isGreeting && agent.config?.strictCriticEnabled === true) {
       try {
         const criticResult = await evaluateGrounding(
           finalBotReply,

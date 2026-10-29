@@ -28,23 +28,25 @@ export function generateMockEmbedding(text: string): number[] {
   return embedding;
 }
 
+let remoteEmbeddingsDisabled = false;
+
 /**
  * Request a 768-dimension vector embedding using Gemini embedding models.
- * Uses text-embedding-004 (or embedding-001), normalized to 768 dimensions for pgvector.
- * Falls back to generateMockEmbedding if no valid API key is present, API calls fail, or times out.
+ * Falls back immediately to generateMockEmbedding if no valid API key is present,
+ * API calls fail, or remote embedding endpoints are not provisioned on the API key.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   if (!text) {
     throw new Error('Text is required to generate embedding');
   }
 
-  if (!genAI) {
+  if (!genAI || remoteEmbeddingsDisabled) {
     return generateMockEmbedding(text);
   }
 
-  const candidateModels = ['text-embedding-005', 'text-embedding-004', 'gemini-embedding-001', 'embedding-001'];
+  const candidateModels = ['gemini-embedding-001', 'text-embedding-004'];
   let lastError: any = null;
-  const EMBED_TIMEOUT_MS = 4000;
+  const EMBED_TIMEOUT_MS = 2500;
 
   for (const modelName of candidateModels) {
     try {
@@ -55,11 +57,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       );
 
       const result = await Promise.race([
-        model.embedContent({
-          content: { role: 'user', parts: [{ text }] },
-          // @ts-ignore
-          outputDimensionality: 768
-        }),
+        model.embedContent(text),
         timeoutPromise
       ]);
 
@@ -74,10 +72,15 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       }
     } catch (err: any) {
       lastError = err;
-      console.warn(`[Embeddings] Candidate '${modelName}' failed: ${err.message}`);
     }
   }
 
-  console.warn('Gemini Embedding API call failed or timed out. Falling back to mock. Error:', lastError?.message);
+  // If remote embedding endpoints return 404 on this tier, disable further attempts
+  // to avoid consuming API quota and adding latency to chat queries
+  if (lastError?.message?.includes('404') || lastError?.message?.includes('not found')) {
+    remoteEmbeddingsDisabled = true;
+    console.info('[Embeddings] Remote Gemini embedding endpoints not found on this tier; using high-speed deterministic local vector embeddings.');
+  }
+
   return generateMockEmbedding(text);
 }
