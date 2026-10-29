@@ -96,7 +96,7 @@ export async function generateWarmHandoffBrief(
   userMessage: string,
   history: ChatMessage[],
   actionsTaken: any[] = [],
-  modelName: string = 'gemini-3.8-flash'
+  modelName: string = 'gemini-1.5-flash'
 ): Promise<WarmHandoffBrief> {
   const recentTurns = history.slice(-6);
   const conversationText = recentTurns.map(m => `${m.role === 'user' ? 'Customer' : 'Bot'}: ${m.content}`).join('\n');
@@ -118,13 +118,21 @@ Generate a concise 3-bullet briefing in this exact JSON structure:
 `;
 
   try {
-    const res = await callGemini(
-      'You are an executive support coordinator. Respond in valid JSON only.',
-      [],
-      prompt,
-      undefined,
-      modelName
+    const BRIEF_TIMEOUT_MS = 4000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Warm handoff briefing timed out after ${BRIEF_TIMEOUT_MS}ms`)), BRIEF_TIMEOUT_MS)
     );
+
+    const res = await Promise.race([
+      callGemini(
+        'You are an executive support coordinator. Respond in valid JSON only.',
+        [],
+        prompt,
+        undefined,
+        modelName
+      ),
+      timeoutPromise
+    ]);
 
     const match = res.reply.match(/\{[\s\S]*\}/);
     if (match) {

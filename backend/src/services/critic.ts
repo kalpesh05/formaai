@@ -18,7 +18,7 @@ export async function evaluateGrounding(
   candidateAnswer: string,
   contextChunks: string[],
   userQuery: string,
-  modelName: string = 'gemini-3.8-flash'
+  modelName: string = 'gemini-1.5-flash'
 ): Promise<GroundingCheckResult> {
   // If there's no answer or user is just greeting, it's considered safe
   if (!candidateAnswer || candidateAnswer.trim().length === 0) {
@@ -73,13 +73,21 @@ Respond in strict JSON format:
 }`;
 
   try {
-    const res = await callGemini(
-      'You are a strict compliance and hallucination judge. Output valid JSON only.',
-      [],
-      criticPrompt,
-      undefined,
-      modelName
+    const CRITIC_TIMEOUT_MS = 4000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Critic evaluation timed out after ${CRITIC_TIMEOUT_MS}ms`)), CRITIC_TIMEOUT_MS)
     );
+
+    const res = await Promise.race([
+      callGemini(
+        'You are a strict compliance and hallucination judge. Output valid JSON only.',
+        [],
+        criticPrompt,
+        undefined,
+        modelName
+      ),
+      timeoutPromise
+    ]);
 
     // Extract JSON block
     const match = res.reply.match(/\{[\s\S]*\}/);

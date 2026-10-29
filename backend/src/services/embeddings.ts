@@ -30,8 +30,8 @@ export function generateMockEmbedding(text: string): number[] {
 
 /**
  * Request a 768-dimension vector embedding using Gemini embedding models.
- * Uses gemini-embedding-001 (or embedding-001), normalized to 768 dimensions for pgvector.
- * Falls back to generateMockEmbedding if no valid API key is present or API calls fail.
+ * Uses text-embedding-004 (or embedding-001), normalized to 768 dimensions for pgvector.
+ * Falls back to generateMockEmbedding if no valid API key is present, API calls fail, or times out.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   if (!text) {
@@ -42,17 +42,26 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     return generateMockEmbedding(text);
   }
 
-  const candidateModels = ['gemini-embedding-001', 'embedding-001'];
+  const candidateModels = ['text-embedding-004', 'embedding-001'];
   let lastError: any = null;
+  const EMBED_TIMEOUT_MS = 4000;
 
   for (const modelName of candidateModels) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
-      const result = await model.embedContent({
-        content: { role: 'user', parts: [{ text }] },
-        // @ts-ignore
-        outputDimensionality: 768
-      });
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Embedding call to ${modelName} timed out after ${EMBED_TIMEOUT_MS}ms`)), EMBED_TIMEOUT_MS)
+      );
+
+      const result = await Promise.race([
+        model.embedContent({
+          content: { role: 'user', parts: [{ text }] },
+          // @ts-ignore
+          outputDimensionality: 768
+        }),
+        timeoutPromise
+      ]);
 
       if (result.embedding && result.embedding.values && result.embedding.values.length > 0) {
         let values = result.embedding.values;
@@ -65,9 +74,10 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       }
     } catch (err: any) {
       lastError = err;
+      console.warn(`[Embeddings] Candidate '${modelName}' failed: ${err.message}`);
     }
   }
 
-  console.warn('Gemini Embedding API call failed. Falling back to mock. Error:', lastError?.message);
+  console.warn('Gemini Embedding API call failed or timed out. Falling back to mock. Error:', lastError?.message);
   return generateMockEmbedding(text);
 }

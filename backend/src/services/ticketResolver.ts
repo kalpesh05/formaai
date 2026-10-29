@@ -132,7 +132,7 @@ export async function resolveTicketWithAgent(options: ResolveTicketOptions): Pro
       const systemPrompt = TEMPLATES.qa_tester.config.systemPrompt;
       const prompt = `Review the following ticket and generate a complete automated test suite (Jest/Vitest) that covers all edge cases and regression scenarios.\n\nTicket Subject: ${ticket.subject}\nDetails: ${ticket.description}`;
       
-      const aiResponse = await callGemini(systemPrompt, [], prompt, [], targetAgent.llm_model || 'gemini-3.1-pro-preview');
+      const aiResponse = await callGemini(systemPrompt, [], prompt, [], targetAgent.llm_model || 'gemini-1.5-pro');
       resolutionSummary = `QA Test Suite Synthesized:\n\n${aiResponse.reply.slice(0, 500)}...`;
       details = { test_suite: aiResponse.reply };
 
@@ -149,7 +149,7 @@ export async function resolveTicketWithAgent(options: ResolveTicketOptions): Pro
 
       const prompt = `Company Policies:\n${policyContext}\n\nEmployee Query / Ticket:\nSubject: ${ticket.subject}\n${ticket.description}\n\nProvide an empathetic, policy-accurate resolution and outline next steps.`;
 
-      const aiResponse = await callGemini(systemPrompt, [], prompt, [], targetAgent.llm_model || 'gemini-3.8-flash');
+      const aiResponse = await callGemini(systemPrompt, [], prompt, [], targetAgent.llm_model || 'gemini-1.5-flash');
       resolutionSummary = aiResponse.reply;
       details = { reply: aiResponse.reply };
 
@@ -165,7 +165,7 @@ export async function resolveTicketWithAgent(options: ResolveTicketOptions): Pro
       const systemPrompt = targetAgent.config?.systemPrompt || TEMPLATES.support.config.systemPrompt;
       const prompt = `Customer Ticket:\nSubject: ${ticket.subject}\nDescription: ${ticket.description}\n\nDiagnose the root problem, provide clear step-by-step resolution steps, and draft the response for the customer.`;
 
-      const aiResponse = await callGemini(systemPrompt, [], prompt, [], targetAgent.llm_model || 'gemini-3.8-flash');
+      const aiResponse = await callGemini(systemPrompt, [], prompt, [], targetAgent.llm_model || 'gemini-1.5-flash');
       resolutionSummary = aiResponse.reply;
       details = { reply: aiResponse.reply };
 

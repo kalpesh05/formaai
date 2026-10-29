@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { AuthenticatedRequest, authenticateWidgetOrAgency, assertAgentBelongsToAgency } from '../middleware/auth';
-import pool, { query } from '../config/db';
+import { query } from '../config/db';
 import { callGemini, ChatMessage, ToolDefinition, resolveGeminiModel } from '../services/router';
 import { executeTool } from '../services/tools';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -260,7 +260,7 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
   }
 
   // 4. Resolve Model and Condense Multi-Turn Query (Comprehension Layer)
-  const activeModel = resolveGeminiModel(agent.llm_model || 'gemini-3.8-flash');
+  const activeModel = resolveGeminiModel(agent.llm_model || 'gemini-1.5-flash');
   let searchOptimizedQuery = message;
   try {
     searchOptimizedQuery = await condenseQuery(message, chatHistory, activeModel);
@@ -493,10 +493,18 @@ No verified documentation was retrieved for this specific query.
               systemInstruction: systemPrompt,
             });
 
-            const nextStepResponse = await model.generateContent({
-              contents: geminiHistory,
-              tools: declaration ? [declaration] : undefined
-            });
+            const TOOL_STEP_TIMEOUT_MS = 6000;
+            const timeoutPromise = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error(`Tool step timed out after ${TOOL_STEP_TIMEOUT_MS}ms`)), TOOL_STEP_TIMEOUT_MS)
+            );
+
+            const nextStepResponse = await Promise.race([
+              model.generateContent({
+                contents: geminiHistory,
+                tools: declaration ? [declaration] : undefined
+              }),
+              timeoutPromise
+            ]);
 
             const subsequentFunctionCalls = nextStepResponse.response.functionCalls();
             if (subsequentFunctionCalls && subsequentFunctionCalls.length > 0 && stepCount < MAX_TOOL_STEPS) {
@@ -576,25 +584,17 @@ No verified documentation was retrieved for this specific query.
     }
   }
 
-  // 10. Log message exchange in messages table (within a transaction)
-  const client = await pool.connect();
+  // 10. Log message exchange in messages table
   try {
-    await client.query('BEGIN');
-    // Save user message
-    await client.query(
-      `INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'user', $2)`,
-      [conversationId, message]
-    );
     // Save assistant reply (unless in shadow mode waiting for review)
     const storedAssistantReply = copilotMode 
       ? `[Shadow Mode] Draft generated for team review.` 
       : finalBotReply;
 
-    await client.query(
-      `INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'assistant', $2)`,
-      [conversationId, storedAssistantReply]
+    await query(
+      `INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'user', $2), ($1, 'assistant', $3)`,
+      [conversationId, message, storedAssistantReply]
     );
-    await client.query('COMMIT');
 
     // Increment workspace monthly message quota counter asynchronously
     if (queryAllowance.workspaceId) {
@@ -604,10 +604,7 @@ No verified documentation was retrieved for this specific query.
       ).catch((err: any) => console.warn('Failed to increment message quota count:', err));
     }
   } catch (err) {
-    await client.query('ROLLBACK');
     console.error('Failed to log message session history:', err);
-  } finally {
-    client.release();
   }
 
   // Return the resolved final reply and log trace to the caller

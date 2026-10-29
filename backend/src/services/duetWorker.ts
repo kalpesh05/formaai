@@ -46,7 +46,7 @@ export async function runDuetAnalysis(agentId: string): Promise<DiscoveredGap[]>
 
   // 1. Fetch Agent details
   const agentRes = await query(`SELECT template_type, llm_model FROM agents WHERE id = $1`, [agentId]);
-  const activeModel = resolveGeminiModel(agentRes.rows[0]?.llm_model || 'gemini-3.8-flash');
+  const activeModel = resolveGeminiModel(agentRes.rows[0]?.llm_model || 'gemini-1.5-flash');
   const templateType = agentRes.rows[0]?.template_type || 'support';
 
   // 2. Fetch recent user messages and ticket topics

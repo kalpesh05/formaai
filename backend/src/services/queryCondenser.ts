@@ -9,7 +9,7 @@ import { callGemini, ChatMessage } from './router';
 export async function condenseQuery(
   currentMessage: string,
   history: ChatMessage[],
-  modelName: string = 'gemini-3.8-flash'
+  modelName: string = 'gemini-1.5-flash'
 ): Promise<string> {
   const cleanMessage = currentMessage.trim();
   
@@ -47,20 +47,28 @@ Latest Customer Message:
 Standalone Search Query:`;
 
   try {
-    const res = await callGemini(
-      'You are a query rewriting model. Output ONLY the rewritten standalone search query.',
-      [],
-      rewritePrompt,
-      undefined,
-      modelName
+    const CONDENSER_TIMEOUT_MS = 4000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Condenser timed out after ${CONDENSER_TIMEOUT_MS}ms`)), CONDENSER_TIMEOUT_MS)
     );
+
+    const res = await Promise.race([
+      callGemini(
+        'You are a query rewriting model. Output ONLY the rewritten standalone search query.',
+        [],
+        rewritePrompt,
+        undefined,
+        modelName
+      ),
+      timeoutPromise
+    ]);
 
     const rewritten = res.reply.trim().replace(/^["']|["']$/g, '');
     if (rewritten && rewritten.length > 2 && !rewritten.includes('\n')) {
       return rewritten;
     }
   } catch (err: any) {
-    console.warn('[QueryCondenser] Query rewrite failed, falling back to raw message:', err.message);
+    console.warn('[QueryCondenser] Query rewrite failed or timed out, falling back to raw message:', err.message);
   }
 
   return cleanMessage;

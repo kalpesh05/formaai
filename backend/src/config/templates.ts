@@ -28,7 +28,7 @@ export const TEMPLATES: Record<TemplateType, TemplatePreset> = {
     description: 'Diagnoses user complaints, answers product FAQs, and creates escalation tickets with error traces.',
     department: 'support',
     llm_provider: 'gemini',
-    llm_model: 'gemini-3.8-flash',
+    llm_model: 'gemini-1.5-flash',
     config: {
       systemPrompt: 'You are an intelligent customer support engineer. Ground your answers strictly in our verified documentation and codebase. If the user asks about payments, plans, or account state, use the query_user_account tool to check live database status. If the user reports a bug, white screen, or crash, use the check_recent_telemetry_errors tool to inspect recent stack traces. If you cannot solve the issue, use create_support_ticket.',
     },
@@ -59,7 +59,7 @@ export const TEMPLATES: Record<TemplateType, TemplatePreset> = {
     description: 'Engages inbound leads, answers pricing and capability questions, and books qualified demos on Cal.com.',
     department: 'sales',
     llm_provider: 'gemini',
-    llm_model: 'gemini-3.8-flash',
+    llm_model: 'gemini-1.5-flash',
     config: {
       systemPrompt: 'You are a helpful sales assistant. Answer pricing and feature questions using the context. If the user wants a demo, call or booking, use the book_calendar_slot tool.',
     },
@@ -76,7 +76,7 @@ export const TEMPLATES: Record<TemplateType, TemplatePreset> = {
     description: 'Internal 24/7 staff assistant for leave policy, benefits, holiday schedules, and workplace guidelines.',
     department: 'hr',
     llm_provider: 'gemini',
-    llm_model: 'gemini-3.8-flash',
+    llm_model: 'gemini-1.5-flash',
     config: {
       systemPrompt: 'You are an internal People Operations & HR Concierge. Answer internal company policy questions strictly based on uploaded employee guidelines, leave rules, and benefit documents. If an employee requests leave or formal HR action, structure the request and create an internal ticket.',
     },
@@ -172,7 +172,7 @@ When developing features or repairing UI components, you MUST strictly adhere to
     description: 'Generates automated test suites (Jest/Playwright), checks edge cases, and verifies PR diffs before deployment.',
     department: 'qa',
     llm_provider: 'gemini',
-    llm_model: 'gemini-3.1-pro-preview',
+    llm_model: 'gemini-1.5-pro',
     config: {
       systemPrompt: 'You are an automated Quality Assurance and Test Automation Engineer. Given a bug report or proposed code patch, generate automated unit and integration tests. Verify edge cases (null inputs, boundary conditions, race conditions) and give a clear PASS or FAIL verdict.',
     },
@@ -189,7 +189,7 @@ When developing features or repairing UI components, you MUST strictly adhere to
     description: 'Analyzes incoming tickets, classifies the root problem, assigns priority, and delegates to the right agent.',
     department: 'operations',
     llm_provider: 'gemini',
-    llm_model: 'gemini-3.8-flash',
+    llm_model: 'gemini-1.5-flash',
     config: {
       systemPrompt: 'You are the Lead Triage Orchestrator. When a ticket arrives, analyze its urgency, technical domain (support, hr, backend, frontend, qa), set the priority level (low, medium, high, urgent), and assign it to the most suitable specialized agent.',
     },
@@ -206,7 +206,7 @@ When developing features or repairing UI components, you MUST strictly adhere to
     description: 'Converts product ideas into battle-tested production blueprints (C4 Mermaid diagrams, SQL schemas, API contracts, scaling roadmaps) or audits existing systems for bottlenecks & SPOFs.',
     department: 'engineering',
     llm_provider: 'gemini',
-    llm_model: 'gemini-3.1-pro-preview',
+    llm_model: 'gemini-1.5-pro',
     config: {
       systemPrompt: `You are an elite Principal System Architect & Staff Infrastructure Engineer.
 Your mission is to bridge business ideas and production-grade engineering reality.

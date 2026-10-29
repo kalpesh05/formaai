@@ -588,7 +588,7 @@
           ? `${apiHost}/api/v1/agents/${agentId}/query` 
           : `/api/v1/agents/${agentId}/query`;
 
-        const response = await fetch(queryUrl, {
+        const fetchOptions = {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -599,7 +599,12 @@
             conversation_id: convId || undefined,
             user_context: sessionCtx
           })
-        });
+        };
+        if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+          fetchOptions.signal = AbortSignal.timeout(25000);
+        }
+
+        const response = await fetch(queryUrl, fetchOptions);
 
         if (!response.ok) {
           throw new Error('Query request failed');

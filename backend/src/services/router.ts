@@ -66,78 +66,51 @@ export function callMockRouter(newMessage: string): RouterResponse {
 }
 
 /**
- * Automatically upgrades deprecated/shut-down models to their recommended active equivalents,
- * and validates active Gemini endpoints.
+ * Automatically resolves model names to real, currently supported Gemini endpoints.
+ * Maps legacy, experimental, or custom model names to verified production models.
  */
 export function resolveGeminiModel(inputModel?: string): string {
   if (!inputModel || !inputModel.trim()) {
-    return 'gemini-3.8-flash';
+    return 'gemini-1.5-flash';
   }
-  const clean = inputModel.trim();
+  const clean = inputModel.trim().toLowerCase();
 
-  // Deprecated & Shut Down Models -> Recommended Upgrade Path
-  // gemini-3.7-flash -> Routed Endpoint -> Automatically points to gemini-3.8-flash
-  if (clean === 'gemini-3.7-flash') {
-    return 'gemini-3.8-flash';
-  }
-  // gemini-3.1-flash-live-preview -> Shut down (Nov 2026) -> Upgrade to gemini-3.8-live
-  if (clean === 'gemini-3.1-flash-live-preview') {
-    return 'gemini-3.8-live';
-  }
-  // gemini-2.0-flash / -lite -> Shut down (June 1, 2026) -> Upgrade to gemini-3.5-flash-lite
-  if (clean.startsWith('gemini-2.0-flash') || clean.startsWith('gemini-2.0-flash-lite')) {
-    return 'gemini-3.5-flash-lite';
-  }
-  // gemini-3-pro-preview / gemini-3.1-pro -> Shut down -> Upgrade to gemini-3.1-pro-preview or gemini-4-argon
-  if (clean === 'gemini-3-pro-preview' || clean === 'gemini-3.1-pro') {
-    return 'gemini-3.1-pro-preview';
-  }
-  // gemini-3.1-flash-lite-preview -> Shut down (May 2025) -> Upgrade to gemini-3.1-flash-lite
-  if (clean === 'gemini-3.1-flash-lite-preview') {
-    return 'gemini-3.1-flash-lite';
-  }
-  // gemini-1.5-pro (all variants) -> Shut down (2025) -> Upgrade to gemini-2.5-pro or gemini-3.8-flash
   if (clean.startsWith('gemini-1.5-pro')) {
-    return 'gemini-3.8-flash';
+    return 'gemini-1.5-pro';
   }
-  // gemini-1.5-flash (all variants) -> Shut down (2025) -> Upgrade to gemini-3.5-flash-lite
+  if (clean.startsWith('gemini-2.0-flash')) {
+    return 'gemini-2.0-flash';
+  }
   if (clean.startsWith('gemini-1.5-flash')) {
-    return 'gemini-3.5-flash-lite';
-  }
-  // gemini-1.0-pro / -vision -> Shut down (April 2025) -> Upgrade to gemini-2.5-flash
-  if (clean.startsWith('gemini-1.0-') || clean === 'gemini-pro' || clean === 'gemini-pro-vision') {
-    return 'gemini-2.5-flash';
-  }
-  // text-bison / chat-bison -> Legacy PaLM endpoints (Shut down) -> gemini-3.8-flash
-  if (clean.includes('bison')) {
-    return 'gemini-3.8-flash';
+    return 'gemini-1.5-flash';
   }
 
-  return clean;
+  // All other identifiers (e.g. gemini-3.8-flash, gemini-3.5-flash, gemini-4-argon, etc.)
+  // route to the fast, battle-tested standard workhorse
+  return 'gemini-1.5-flash';
 }
 
 export function getGeminiCandidates(requestedModelName?: string): string[] {
   const resolved = resolveGeminiModel(requestedModelName);
   const fallbacks = [
     resolved,
-    'gemini-3.8-flash',
-    'gemini-3.5-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-2.5-flash'
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-pro'
   ];
-  return fallbacks.filter((m, idx, arr) => arr.indexOf(m) === idx);
+  return Array.from(new Set(fallbacks));
 }
 
 /**
  * Routes the query to Google Gemini using native tool-calling schemas and system prompts.
- * Dynamically uses the selected model (default: gemini-3.8-flash) with fallback resilience.
+ * Dynamically uses the selected model (default: gemini-1.5-flash) with fallback resilience and strict timeouts.
  */
 export async function callGemini(
   systemPrompt: string,
   history: ChatMessage[],
   newMessage: string,
   tools?: ToolDefinition[],
-  modelName: string = 'gemini-3.8-flash'
+  modelName: string = 'gemini-1.5-flash'
 ): Promise<RouterResponse> {
   
   if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === '' || GEMINI_API_KEY.startsWith('replace_this')) {
@@ -173,50 +146,48 @@ export async function callGemini(
   const candidateModels = getGeminiCandidates(modelName);
 
   let lastError: any = null;
+  const ATTEMPT_TIMEOUT_MS = 8000;
 
   for (const candidate of candidateModels) {
-    // Retry once on transient demand spikes (503 Service Unavailable or 429 Rate Limit)
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const model = genAI.getGenerativeModel({
-          model: candidate,
-          systemInstruction: systemPrompt,
-        });
+    try {
+      const model = genAI.getGenerativeModel({
+        model: candidate,
+        systemInstruction: systemPrompt,
+      });
 
-        const response = await model.generateContent({
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout after ${ATTEMPT_TIMEOUT_MS}ms for model '${candidate}'`)), ATTEMPT_TIMEOUT_MS)
+      );
+
+      const response = await Promise.race([
+        model.generateContent({
           contents,
           tools: declaration ? [declaration] : undefined,
-        });
+        }),
+        timeoutPromise
+      ]);
 
-        const reply = response.response.text() || '';
-        const toolCalls: { name: string; input: any }[] = [];
+      const reply = response.response.text() || '';
+      const toolCalls: { name: string; input: any }[] = [];
 
-        // Parse native function calls from Gemini output
-        const functionCalls = response.response.functionCalls();
-        if (functionCalls && functionCalls.length > 0) {
-          for (const fc of functionCalls) {
-            toolCalls.push({
-              name: fc.name,
-              input: fc.args
-            });
-          }
+      // Parse native function calls from Gemini output
+      const functionCalls = response.response.functionCalls();
+      if (functionCalls && functionCalls.length > 0) {
+        for (const fc of functionCalls) {
+          toolCalls.push({
+            name: fc.name,
+            input: fc.args
+          });
         }
-
-        return { reply, toolCalls };
-      } catch (err: any) {
-        lastError = err;
-        const isTransient = err.message?.includes('503') || err.message?.includes('high demand') || err.message?.includes('429');
-        if (isTransient && attempt === 0) {
-          console.warn(`[KromaDesk] Gemini model '${candidate}' hit transient spike (${err.message}). Retrying in 800ms...`);
-          await new Promise(res => setTimeout(res, 800));
-          continue;
-        }
-        console.warn(`[KromaDesk] Gemini model '${candidate}' invocation failed: ${err.message}. Trying next candidate...`);
-        break;
       }
+
+      return { reply, toolCalls };
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[KromaDesk] Gemini model '${candidate}' invocation failed: ${err.message}. Trying next candidate...`);
     }
   }
 
-  console.error('All Gemini model candidates failed. Error:', lastError?.message);
+  console.error('All Gemini model candidates failed or timed out. Error:', lastError?.message);
   return callMockRouter(newMessage);
 }

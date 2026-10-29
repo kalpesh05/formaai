@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS agents (
   template_type TEXT NOT NULL CHECK (template_type IN ('support', 'sales', 'hr', 'backend_dev', 'frontend_dev', 'qa_tester', 'router')),
   name TEXT NOT NULL,
   llm_provider TEXT NOT NULL DEFAULT 'gemini',
-  llm_model TEXT NOT NULL DEFAULT 'gemini-3.8-flash',
+  llm_model TEXT NOT NULL DEFAULT 'gemini-1.5-flash',
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'live', 'paused')),
   config JSONB NOT NULL DEFAULT '{}',
   api_key TEXT UNIQUE, -- issued on deploy, used by widget

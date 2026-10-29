@@ -390,7 +390,7 @@ export async function processInboundEmail(payload: InboundEmailPayload) {
     content: m.body_text,
   }));
 
-  const activeModel = targetAgent.llm_model || 'gemini-3.8-flash';
+  const activeModel = targetAgent.llm_model || 'gemini-1.5-flash';
   let generatedReply = '';
 
   try {
