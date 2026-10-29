@@ -523,7 +523,7 @@ No verified documentation was retrieved for this specific query.
             break;
           }
         } else {
-          routerResponse.reply = `[Mock Final AI Response] Successfully executed action: ${JSON.stringify(actionsTaken.map(a => a.tool_type))}.`;
+          routerResponse.reply = `I have successfully processed your request. Actions completed: ${actionsTaken.map(a => a.tool_type.replace(/_/g, ' ')).join(', ')}.`;
           routerResponse.toolCalls = [];
         }
       }

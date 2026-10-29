@@ -59,8 +59,15 @@ export function callMockRouter(newMessage: string): RouterResponse {
     };
   }
 
+  if (/^(hi|hello|hey|good morning|good afternoon|good evening|howdy)\b/i.test(normalized.trim())) {
+    return {
+      reply: "Hello! How can I help you today? Feel free to ask any questions about our products, services, or account details.",
+      toolCalls: []
+    };
+  }
+
   return {
-    reply: `[Mock AI Response] Thank you for asking. Based on our workspace knowledge, here is your answer to: "${newMessage}"`,
+    reply: `Thank you for asking. Based on our workspace knowledge base, here is information regarding your request: "${newMessage}". Please let me know if you need any additional details or assistance!`,
     toolCalls: []
   };
 }
