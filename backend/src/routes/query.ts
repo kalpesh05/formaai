@@ -1,7 +1,7 @@
 import { Router, Response, NextFunction } from 'express';
 import { AuthenticatedRequest, authenticateWidgetOrAgency, assertAgentBelongsToAgency } from '../middleware/auth';
 import { query } from '../config/db';
-import { callGemini, ChatMessage, ToolDefinition, resolveGeminiModel } from '../services/router';
+import { routeQuery, ChatMessage, ToolDefinition, resolveGeminiModel } from '../services/router';
 import { executeTool } from '../services/tools';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { condenseQuery } from '../services/queryCondenser';
@@ -395,12 +395,13 @@ No verified documentation was retrieved for this specific query.
     );
     const mappedTools = mapAgentTools(toolsResult.rows);
 
-    // 8. Invoke the Gemini LLM router
-    let routerResponse = await callGemini(
+    // 8. Invoke the multi-provider LLM router (Groq primary, Gemini secondary fallback)
+    let routerResponse = await routeQuery(
       systemPrompt,
       chatHistory,
       message,
       mappedTools,
+      agent.llm_provider || 'groq',
       activeModel
     );
 

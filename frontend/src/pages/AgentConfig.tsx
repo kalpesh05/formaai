@@ -35,6 +35,44 @@ export interface ModelOption {
 }
 
 export const PROVIDER_MODELS: Record<string, ModelOption[]> = {
+  groq: [
+    {
+      id: 'openai/gpt-oss-120b',
+      name: 'GPT OSS 120B (Groq)',
+      badge: 'Recommended · Frontier LPU Inference',
+      badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      speed: '~180ms (Ultra-Low Latency)',
+      speedRating: 5,
+      reasoning: 'Superior (Native Tool Calling & Deep Logic)',
+      cost: 'Cost-Effective High Throughput',
+      outputDescription: 'Flagship open architecture deployed on Groq LPUs. Exceptional reasoning, zero token lag, and instant native tool execution.',
+      bestFor: 'Production Customer Support, Sales Conversational Agents & Live Embedded Chat'
+    },
+    {
+      id: 'openai/gpt-oss-20b',
+      name: 'GPT OSS 20B (Groq)',
+      badge: 'Lightning Speed · 110ms',
+      badgeStyle: 'bg-amber-50 text-amber-700 border-amber-200',
+      speed: '~110ms (Instantaneous)',
+      speedRating: 5,
+      reasoning: 'High (Fast FAQ & Routing)',
+      cost: 'Lowest Cost per Token',
+      outputDescription: 'Optimized for high-frequency low-latency processing. Near-instantaneous response times for real-time deflection.',
+      bestFor: 'High-frequency live chat widgets, fast intent detection, and instant lead triage'
+    },
+    {
+      id: 'qwen/qwen3.8-27b',
+      name: 'Qwen 3.8 27B (Groq)',
+      badge: 'Balanced Reasoning',
+      badgeStyle: 'bg-blue-50 text-blue-700 border-blue-200',
+      speed: '~220ms',
+      speedRating: 5,
+      reasoning: 'High',
+      cost: 'Balanced Economy',
+      outputDescription: 'High-performance multilingual and code reasoning model on Groq hardware.',
+      bestFor: 'Technical documentation search and multi-turn workflows'
+    }
+  ],
   gemini: [
     {
       id: 'gemini-3.8-flash',
@@ -708,13 +746,15 @@ export default function AgentConfig() {
                       onChange={(e) => {
                         const newProv = e.target.value;
                         setProvider(newProv);
-                        if (newProv === 'gemini') setModel('gemini-1.5-flash');
+                        if (newProv === 'groq') setModel('openai/gpt-oss-120b');
+                        else if (newProv === 'gemini') setModel('gemini-3.8-flash');
                         else if (newProv === 'openai') setModel('gpt-4o-mini');
                         else if (newProv === 'anthropic') setModel('claude-3-5-sonnet');
                         setIsDirty(true);
                       }}
                       className="w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-500 text-sm"
                     >
+                      <option value="groq">Groq Cloud (Ultra-Fast LPU Inference)</option>
                       <option value="gemini">Google Gemini</option>
                       <option value="openai">OpenAI</option>
                       <option value="anthropic">Anthropic</option>
@@ -766,7 +806,7 @@ export default function AgentConfig() {
 
                   {/* Model Cards Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                    {(PROVIDER_MODELS[provider] || PROVIDER_MODELS.gemini).map((opt) => {
+                    {(PROVIDER_MODELS[provider] || PROVIDER_MODELS.groq || PROVIDER_MODELS.gemini).map((opt) => {
                       const isSelected = model === opt.id;
                       return (
                         <div
