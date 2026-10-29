@@ -42,7 +42,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     return generateMockEmbedding(text);
   }
 
-  const candidateModels = ['text-embedding-004', 'embedding-001'];
+  const candidateModels = ['text-embedding-005', 'text-embedding-004', 'gemini-embedding-001', 'embedding-001'];
   let lastError: any = null;
   const EMBED_TIMEOUT_MS = 4000;
 

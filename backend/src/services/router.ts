@@ -74,50 +74,57 @@ export function callMockRouter(newMessage: string): RouterResponse {
 
 /**
  * Automatically resolves model names to real, currently supported Gemini endpoints.
- * Maps legacy, experimental, or custom model names to verified production models.
+ * Maps legacy or retired models (such as 1.5 or 2.0) to active generation models (gemini-3.8-flash).
  */
 export function resolveGeminiModel(inputModel?: string): string {
   if (!inputModel || !inputModel.trim()) {
-    return 'gemini-1.5-flash';
+    return 'gemini-3.8-flash';
   }
   const clean = inputModel.trim().toLowerCase();
 
-  if (clean.startsWith('gemini-1.5-pro')) {
-    return 'gemini-1.5-pro';
-  }
-  if (clean.startsWith('gemini-2.0-flash')) {
-    return 'gemini-2.0-flash';
-  }
-  if (clean.startsWith('gemini-1.5-flash')) {
-    return 'gemini-1.5-flash';
+  // If user or agent requests legacy/retired models (1.5, 2.0), upgrade to 3.8-flash as instructed by Google API
+  if (clean.includes('1.5') || clean.includes('2.0') || clean.includes('bison')) {
+    return 'gemini-3.8-flash';
   }
 
-  // All other identifiers (e.g. gemini-3.8-flash, gemini-3.5-flash, gemini-4-argon, etc.)
-  // route to the fast, battle-tested standard workhorse
-  return 'gemini-1.5-flash';
+  if (clean.includes('3.8')) {
+    return 'gemini-3.8-flash';
+  }
+  if (clean.includes('3.5')) {
+    return 'gemini-3.5-flash';
+  }
+  if (clean.includes('3.1')) {
+    return 'gemini-3.1-pro-preview';
+  }
+  if (clean.includes('2.5')) {
+    return 'gemini-2.5-flash';
+  }
+
+  return clean;
 }
 
 export function getGeminiCandidates(requestedModelName?: string): string[] {
   const resolved = resolveGeminiModel(requestedModelName);
   const fallbacks = [
     resolved,
-    'gemini-1.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-pro'
+    'gemini-3.8-flash',
+    'gemini-3.5-flash',
+    'gemini-3.1-pro-preview',
+    'gemini-2.5-flash'
   ];
   return Array.from(new Set(fallbacks));
 }
 
 /**
  * Routes the query to Google Gemini using native tool-calling schemas and system prompts.
- * Dynamically uses the selected model (default: gemini-1.5-flash) with fallback resilience and strict timeouts.
+ * Dynamically uses the selected model (default: gemini-3.8-flash) with fallback resilience and strict timeouts.
  */
 export async function callGemini(
   systemPrompt: string,
   history: ChatMessage[],
   newMessage: string,
   tools?: ToolDefinition[],
-  modelName: string = 'gemini-1.5-flash'
+  modelName: string = 'gemini-3.8-flash'
 ): Promise<RouterResponse> {
   
   if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === '' || GEMINI_API_KEY.startsWith('replace_this')) {

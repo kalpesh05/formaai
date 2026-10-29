@@ -18,7 +18,7 @@ export async function evaluateGrounding(
   candidateAnswer: string,
   contextChunks: string[],
   userQuery: string,
-  modelName: string = 'gemini-1.5-flash'
+  modelName: string = 'gemini-3.8-flash'
 ): Promise<GroundingCheckResult> {
   // If there's no answer or user is just greeting, it's considered safe
   if (!candidateAnswer || candidateAnswer.trim().length === 0) {

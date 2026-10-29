@@ -260,7 +260,7 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
   }
 
   // 4. Resolve Model and Condense Multi-Turn Query (Comprehension Layer)
-  const activeModel = resolveGeminiModel(agent.llm_model || 'gemini-1.5-flash');
+  const activeModel = resolveGeminiModel(agent.llm_model || 'gemini-3.8-flash');
   let searchOptimizedQuery = message;
   try {
     searchOptimizedQuery = await condenseQuery(message, chatHistory, activeModel);

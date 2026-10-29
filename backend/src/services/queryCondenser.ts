@@ -9,7 +9,7 @@ import { callGemini, ChatMessage } from './router';
 export async function condenseQuery(
   currentMessage: string,
   history: ChatMessage[],
-  modelName: string = 'gemini-1.5-flash'
+  modelName: string = 'gemini-3.8-flash'
 ): Promise<string> {
   const cleanMessage = currentMessage.trim();
   

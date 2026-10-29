@@ -96,7 +96,7 @@ export async function generateWarmHandoffBrief(
   userMessage: string,
   history: ChatMessage[],
   actionsTaken: any[] = [],
-  modelName: string = 'gemini-1.5-flash'
+  modelName: string = 'gemini-3.8-flash'
 ): Promise<WarmHandoffBrief> {
   const recentTurns = history.slice(-6);
   const conversationText = recentTurns.map(m => `${m.role === 'user' ? 'Customer' : 'Bot'}: ${m.content}`).join('\n');
