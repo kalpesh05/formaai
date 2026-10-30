@@ -302,11 +302,6 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
 
   const activeAOP = matchAOP(message, customAOPs.length > 0 ? customAOPs : undefined);
 
-  const rawThreshold = agent.config?.confidenceThreshold;
-  const confidenceThreshold = typeof rawThreshold === 'number'
-    ? Math.min(rawThreshold, 0.50)
-    : 0.48;
-
   const fallbackMode = agent.config?.fallbackMode || 'escalate_ticket';
   const copilotMode = agent.config?.copilotMode === true;
   const isGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|howdy|who are you)\b/i.test(message.trim());
@@ -314,13 +309,15 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
   let guardrailTriggered = false;
   let fallbackReply = '';
 
-  // If there's a strong keyword match or an active AOP workflow,
-  // we do not bluntly reject solely on dense cosine score. We let the model reason and verify via the Critic.
-  if (!isGreeting && !activeAOP && !hasKeywordMatch && topSimilarity > 0 && topSimilarity < confidenceThreshold) {
+  // If no chunks were retrieved at all and no AOP or keyword matched,
+  // provide a warm, human customer support response rather than exposing robotic math or internal thresholds.
+  const hasRetrievedContent = Boolean(chunksText && chunksText.trim().length > 0);
+  
+  if (!isGreeting && !activeAOP && !hasRetrievedContent && !hasKeywordMatch && topSimilarity === 0) {
     guardrailTriggered = true;
     if (fallbackMode === 'escalate_ticket') {
-      const ticketSubj = `Low confidence escalation: ${message.slice(0, 60)}`;
-      const ticketDesc = `End user query: "${message}"\nRetrieval similarity was ${(topSimilarity * 100).toFixed(1)}% (minimum threshold: ${(confidenceThreshold * 100).toFixed(0)}%).\nAuto-escalated by Zero-Blunder guardrail.`;
+      const ticketSubj = `Unresolved query: ${message.slice(0, 60)}`;
+      const ticketDesc = `End user query: "${message}"\nNo relevant documentation found in workspace knowledge base. Auto-escalated for team review.`;
       
       try {
         await query(
@@ -331,9 +328,9 @@ router.post('/agents/:id/query', authenticateWidgetOrAgency, asyncHandler(async 
         console.error('Failed to log guardrail ticket:', e.message);
       }
 
-      fallbackReply = `I want to ensure you get 100% accurate guidance. My knowledge match confidence for this question is ${(topSimilarity * 100).toFixed(0)}% (below our ${(confidenceThreshold * 100).toFixed(0)}% strict verification threshold). Rather than risk inaccurate formula or codebase details, I have automatically escalated a support ticket for our engineering team to assist you directly.`;
+      fallbackReply = `I want to make sure you get 100% accurate information, and I don't have the specific details on that in my current notes. I've opened a quick request for our team so we can follow up and help you directly. In the meantime, is there anything else about our platform or features I can assist you with?`;
     } else {
-      fallbackReply = `I do not have sufficient verified documentation or codebase records in my current knowledge base to answer this with high confidence (confidence: ${(topSimilarity * 100).toFixed(0)}%, required: ${(confidenceThreshold * 100).toFixed(0)}%). Please contact engineering support or check our verified docs.`;
+      fallbackReply = `I want to ensure you get accurate information, but I don't have the specific documentation for this right now. Please feel free to reach out to our support team or check our help center!`;
     }
   }
 

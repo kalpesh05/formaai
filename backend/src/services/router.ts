@@ -169,59 +169,53 @@ export async function callGemini(
   const candidateModels = getGeminiCandidates(modelName);
 
   let lastError: any = null;
-  const ATTEMPT_TIMEOUT_MS = 12000;
+  const ATTEMPT_TIMEOUT_MS = 4000;
 
   for (const candidate of candidateModels) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const model = genAI.getGenerativeModel({
-          model: candidate,
-          systemInstruction: systemPrompt,
-        });
+    try {
+      const model = genAI.getGenerativeModel({
+        model: candidate,
+        systemInstruction: systemPrompt,
+      });
 
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Timeout after ${ATTEMPT_TIMEOUT_MS}ms for model '${candidate}'`)), ATTEMPT_TIMEOUT_MS)
-        );
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout after ${ATTEMPT_TIMEOUT_MS}ms for model '${candidate}'`)), ATTEMPT_TIMEOUT_MS)
+      );
 
-        const response = await Promise.race([
-          model.generateContent({
-            contents,
-            tools: declaration ? [declaration] : undefined,
-          }),
-          timeoutPromise
-        ]);
+      const response = await Promise.race([
+        model.generateContent({
+          contents,
+          tools: declaration ? [declaration] : undefined,
+        }),
+        timeoutPromise
+      ]);
 
-        const reply = response.response.text() || '';
-        const toolCalls: { name: string; input: any }[] = [];
+      const reply = response.response.text() || '';
+      const toolCalls: { name: string; input: any }[] = [];
 
-        // Parse native function calls from Gemini output
-        const functionCalls = response.response.functionCalls();
-        if (functionCalls && functionCalls.length > 0) {
-          for (const fc of functionCalls) {
-            toolCalls.push({
-              name: fc.name,
-              input: fc.args
-            });
-          }
+      // Parse native function calls from Gemini output
+      const functionCalls = response.response.functionCalls();
+      if (functionCalls && functionCalls.length > 0) {
+        for (const fc of functionCalls) {
+          toolCalls.push({
+            name: fc.name,
+            input: fc.args
+          });
         }
+      }
 
-        return { reply, toolCalls };
-      } catch (err: any) {
-        lastError = err;
-        const isTransient = err.message?.includes('503') || err.message?.includes('high demand') || err.message?.includes('429');
-        if (isTransient && attempt === 0) {
-          console.warn(`[KromaDesk] Gemini model '${candidate}' hit transient spike (${err.message}). Retrying in 700ms...`);
-          await new Promise(res => setTimeout(res, 700));
-          continue;
-        }
-        console.warn(`[KromaDesk] Gemini model '${candidate}' invocation failed: ${err.message}. Trying next candidate...`);
-        break;
+      return { reply, toolCalls };
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[KromaDesk] Gemini model '${candidate}' failed (${err.message}). Trying next candidate...`);
+      // If Groq is available and Gemini is failing/timing out, don't keep user waiting through candidate loop
+      if (GROQ_API_KEY && (err.message?.includes('503') || err.message?.includes('Timeout') || err.message?.includes('429'))) {
+        throw err;
       }
     }
   }
 
-  console.error('All Gemini model candidates failed or timed out. Error:', lastError?.message);
-  return callMockRouter(newMessage);
+  throw lastError || new Error('All Gemini model candidates failed or timed out');
 }
 
 /**
