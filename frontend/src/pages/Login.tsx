@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { apiRequest, setToken, setUser } from '../services/api';
 import { Shield, Lock, Mail, Loader, Eye, EyeOff } from 'lucide-react';
 
@@ -10,6 +10,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isExpired = searchParams.get('expired') === 'true';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +54,12 @@ export default function Login() {
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded text-sm text-red-700">
             {error}
+          </div>
+        )}
+
+        {isExpired && !error && (
+          <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded text-sm text-amber-800">
+            Your session has expired. Please sign in again to continue.
           </div>
         )}
 

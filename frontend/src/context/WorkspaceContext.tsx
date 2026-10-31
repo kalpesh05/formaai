@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { apiRequest, removeToken } from '../services/api';
+import { apiRequest, logoutSession } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 export interface WorkspaceUsage {
@@ -83,9 +83,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         return data.length > 0 ? data[0] : null;
       });
     } catch (err: any) {
-      if (err.message?.includes('Unauthorized') || err.message?.includes('failed')) {
-        removeToken();
-        navigate('/login');
+      if (
+        err.message?.includes('expired') ||
+        err.message?.includes('Unauthorized') ||
+        err.message?.includes('failed') ||
+        err.message?.includes('session')
+      ) {
+        logoutSession('expired');
       }
     } finally {
       setLoadingWs(false);

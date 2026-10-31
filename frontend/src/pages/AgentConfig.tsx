@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { apiRequest, getToken, API_HOST } from '../services/api';
+import { apiRequest, getToken, API_HOST, logoutSession } from '../services/api';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { 
   Bot, Settings, Hammer, FileText, Code2, Save, Upload, 
@@ -423,6 +423,10 @@ export default function AgentConfig() {
       });
 
       if (!res.ok) {
+        if (res.status === 401) {
+          logoutSession('expired');
+          throw new Error('Your session has expired. Please log in again.');
+        }
         throw new Error(`Upload failed: ${res.statusText}`);
       }
 

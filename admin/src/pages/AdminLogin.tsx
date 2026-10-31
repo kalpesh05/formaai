@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiRequest, setToken, setUser } from '../services/api';
 import { Shield, Lock, Mail, Loader, Eye, EyeOff } from 'lucide-react';
 import Alert from '../components/ui/Alert';
@@ -11,6 +11,8 @@ export default function AdminLogin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isExpired = searchParams.get('expired') === 'true';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +55,12 @@ export default function AdminLogin() {
         {error && (
           <Alert type="error">
             {error}
+          </Alert>
+        )}
+
+        {isExpired && !error && (
+          <Alert type="warning">
+            Your session has expired. Please sign in again to continue.
           </Alert>
         )}
 

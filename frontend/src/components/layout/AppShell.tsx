@@ -4,7 +4,7 @@ import {
   Plus, LogOut,
   FileText, Ticket, Mail, Loader, KeyRound, Check, BookOpen, ClipboardList, Bot, CreditCard
 } from 'lucide-react';
-import { removeToken, getUser, apiRequest } from '../../services/api';
+import { getUser, apiRequest, logoutSession } from '../../services/api';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import PlanBanner from './PlanBanner';
 import Modal from '../ui/Modal';
@@ -35,7 +35,7 @@ export default function AppShell({ children }: AppShellProps) {
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   const handleLogout = () => {
-    removeToken();
+    logoutSession('manual');
     navigate('/login');
   };
 

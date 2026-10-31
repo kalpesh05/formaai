@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import pool, { query } from '../config/db';
 import { AuthenticatedRequest, authenticateAgency, requireSuperAdmin } from '../middleware/auth';
 import { TEMPLATES } from '../config/templates';
+import { PLANS } from '../config/plans';
 import { syncPlanWithGateways } from '../services/paymentGateway';
 
 const router = Router();
@@ -395,6 +396,57 @@ router.patch('/customers/:id', asyncHandler(async (req: AuthenticatedRequest, re
 
   if (result.rowCount === 0) {
     return res.status(404).json({ error: 'Customer workspace not found' });
+  }
+
+  // Ensure workspace_subscriptions and limits stay in sync when admin modifies plan tier or status
+  if (plan_tier || subscription_status) {
+    try {
+      const activeTier = (plan_tier || result.rows[0].plan_tier || 'trial').toLowerCase();
+      const planRes = await query('SELECT * FROM subscription_plans WHERE id = $1', [activeTier]);
+      const planData = planRes.rows[0] || (PLANS as any)[activeTier];
+
+      if (planData) {
+        const existingSub = await query(
+          'SELECT id FROM workspace_subscriptions WHERE workspace_id = $1 AND status = $2',
+          [id, 'active']
+        );
+
+        if (existingSub.rows.length > 0) {
+          await query(
+            `UPDATE workspace_subscriptions
+             SET plan_id = $1,
+                 plan_snapshot = $2,
+                 status = COALESCE($3, status),
+                 updated_at = now()
+             WHERE workspace_id = $4 AND status = 'active'`,
+            [
+              activeTier,
+              JSON.stringify(planData),
+              subscription_status ?? null,
+              id,
+            ]
+          );
+        } else if (subscription_status === 'active') {
+          // Admin manually activated this workspace for collaboration or testing
+          await query(
+            `INSERT INTO workspace_subscriptions (
+               workspace_id, plan_id, provider, status, billing_interval, locked_price, plan_snapshot
+             ) VALUES (
+               $1, $2, 'manual_admin', 'active', $3, $4, $5
+             )`,
+            [
+              id,
+              activeTier,
+              billing_interval || result.rows[0].billing_interval || 'monthly',
+              planData.monthly_price ?? planData.monthlyPrice ?? 0,
+              JSON.stringify(planData),
+            ]
+          );
+        }
+      }
+    } catch (subErr) {
+      console.warn('[ADMIN] Could not sync workspace_subscriptions on customer update:', subErr);
+    }
   }
 
   return res.json(result.rows[0]);

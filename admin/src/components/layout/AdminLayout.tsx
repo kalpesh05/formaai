@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Users, Shield, LogOut, KeyRound, Check, CreditCard
 } from 'lucide-react';
-import { removeToken, getUser, apiRequest } from '../../services/api';
+import { getUser, apiRequest, logoutAdminSession } from '../../services/api';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Alert from '../ui/Alert';
@@ -24,7 +24,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   const handleLogout = () => {
-    removeToken();
+    logoutAdminSession('manual');
     navigate('/login');
   };
 

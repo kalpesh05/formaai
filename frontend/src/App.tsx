@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -14,15 +14,85 @@ import Documentation from './pages/Documentation';
 import Pricing from './pages/Pricing';
 import AppShell from './components/layout/AppShell';
 import { WorkspaceProvider } from './context/WorkspaceContext';
-import { getToken } from './services/api';
+import { getToken, isTokenExpired, getTokenRemainingTime, logoutSession, removeToken } from './services/api';
 
 /**
- * Route protection wrapper. Redirects unauthenticated agency sessions
+ * Route protection wrapper. Redirects unauthenticated or expired agency sessions
  * to the login card.
  */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = getToken();
-  return token ? <>{children}</> : <Navigate to="/login" replace />;
+  if (!token || isTokenExpired(token)) {
+    removeToken();
+    return <Navigate to="/login?expired=true" replace />;
+  }
+  return <>{children}</>;
+}
+
+/**
+ * Real-time session watchdog.
+ * Proactively triggers auto-logout when the token expires (timer, tab refocus, or cross-tab logout)
+ * so the user never stays on protected screens with stale or erroneous data.
+ */
+function AuthWatchdog() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const isPublicPath =
+      location.pathname === '/login' ||
+      location.pathname === '/signup' ||
+      location.pathname.startsWith('/f/');
+
+    if (isPublicPath) return;
+
+    const performLogout = () => {
+      logoutSession('expired');
+      navigate('/login?expired=true', { replace: true });
+    };
+
+    const token = getToken();
+    if (!token || isTokenExpired(token)) {
+      performLogout();
+      return;
+    }
+
+    const checkToken = () => {
+      const currentToken = getToken();
+      if (!currentToken || isTokenExpired(currentToken)) {
+        performLogout();
+        return null;
+      }
+      const remainingMs = getTokenRemainingTime(currentToken);
+      if (remainingMs <= 0) {
+        performLogout();
+        return null;
+      }
+      return setTimeout(() => {
+        performLogout();
+      }, remainingMs);
+    };
+
+    let timer = checkToken();
+
+    const handleResume = () => {
+      if (timer) clearTimeout(timer);
+      timer = checkToken();
+    };
+
+    window.addEventListener('visibilitychange', handleResume);
+    window.addEventListener('focus', handleResume);
+    window.addEventListener('storage', handleResume);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('visibilitychange', handleResume);
+      window.removeEventListener('focus', handleResume);
+      window.removeEventListener('storage', handleResume);
+    };
+  }, [location.pathname, navigate]);
+
+  return null;
 }
 
 /**
@@ -45,6 +115,7 @@ function ShellRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
+      <AuthWatchdog />
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />

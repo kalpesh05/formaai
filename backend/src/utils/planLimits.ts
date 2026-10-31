@@ -89,6 +89,7 @@ export interface WorkspaceUsageReport {
  * 3. Falls back to static code config
  */
 export async function getDynamicPlanDefinition(planTier?: string, workspaceId?: string) {
+  const normalized = (planTier || 'trial').toLowerCase();
   if (workspaceId) {
     try {
       const subRes = await pool.query(
@@ -97,15 +98,17 @@ export async function getDynamicPlanDefinition(planTier?: string, workspaceId?: 
          ORDER BY created_at DESC LIMIT 1`,
         [workspaceId]
       );
-      if (subRes.rows.length > 0 && subRes.rows[0].plan_snapshot?.monthlyMessageLimit) {
+      if (
+        subRes.rows.length > 0 &&
+        subRes.rows[0].plan_id === normalized &&
+        subRes.rows[0].plan_snapshot?.monthlyMessageLimit
+      ) {
         return subRes.rows[0].plan_snapshot;
       }
     } catch {
       // Ignore if table is initializing
     }
   }
-
-  const normalized = (planTier || 'trial').toLowerCase();
   try {
     const planRes = await pool.query(
       `SELECT id, name, tagline, monthly_price as "monthlyPrice", yearly_monthly_price as "yearlyMonthlyPrice",

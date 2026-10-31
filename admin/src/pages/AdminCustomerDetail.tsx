@@ -4,7 +4,7 @@ import {
   ArrowLeft, Building2, Globe, Mail, Phone, ExternalLink,
   Bot, Settings, BarChart2, MessageSquare, Calendar,
   Copy, Check, Search, AlertCircle, Save, ChevronRight, Play,
-  GitPullRequest, ClipboardList, FileText, Ticket
+  GitPullRequest, ClipboardList, FileText, Ticket, Sparkles, Zap
 } from 'lucide-react';
 import { apiRequest, API_HOST } from '../services/api';
 import Button from '../components/ui/Button';
@@ -278,6 +278,39 @@ export default function AdminCustomerDetail() {
       alert(`Failed to extend trial: ${err.message}`);
     } finally {
       setExtendingTrial(false);
+    }
+  };
+
+  const handleGrantPreset = (tier: 'enterprise' | 'business' | 'growth') => {
+    setPlanTier(tier);
+    setSubscriptionStatus('active');
+    if (tier === 'enterprise') {
+      setFeatureFlags({
+        forms: true,
+        mailbox: true,
+        tickets: true,
+        logs: true,
+      });
+      if (!adminNotes.includes('[Granted Enterprise access]')) {
+        setAdminNotes(prev => (prev ? `${prev}\n` : '') + `[Granted Enterprise access for collaboration & feature testing]`);
+      }
+    } else if (tier === 'business') {
+      setFeatureFlags({
+        forms: true,
+        mailbox: true,
+        tickets: true,
+        logs: featureFlags.logs || false,
+      });
+      if (!adminNotes.includes('[Granted Business access]')) {
+        setAdminNotes(prev => (prev ? `${prev}\n` : '') + `[Granted Business Suite access for collaboration & testing]`);
+      }
+    } else if (tier === 'growth') {
+      setFeatureFlags({
+        forms: true,
+        mailbox: featureFlags.mailbox || false,
+        tickets: featureFlags.tickets || false,
+        logs: featureFlags.logs || false,
+      });
     }
   };
 
@@ -614,6 +647,38 @@ export default function AdminCustomerDetail() {
                       placeholder="e.g. Healthcare, B2B SaaS"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-brand-500"
                     />
+                  </div>
+
+                  {/* Collaboration & Testing Quick Plan Grant Banner */}
+                  <div className="sm:col-span-2 bg-gradient-to-r from-brand-50/70 via-indigo-50/60 to-purple-50/50 border border-brand-200/80 rounded-xl p-3.5 shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                          <Sparkles size={14} className="text-brand-600" />
+                          <span>Collaboration &amp; Feature Testing Grants</span>
+                          <span className="text-[10px] font-semibold bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full">Admin Override</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
+                          Instantly upgrade this client with one click to test higher-tier capabilities and unlocked beta modules without requiring a payment gateway.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleGrantPreset('enterprise')}
+                          className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white shadow-xs transition-colors flex items-center gap-1.5"
+                        >
+                          <Zap size={12} className="fill-amber-300 text-amber-300" /> Grant Enterprise (All Features Unlocked)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleGrantPreset('business')}
+                          className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-300 hover:border-slate-400 text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+                        >
+                          Grant Business Suite
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div>

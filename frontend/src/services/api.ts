@@ -10,17 +10,90 @@ export interface UserProfile {
   white_label_logo_url?: string;
 }
 
-export function getToken(): string | null {
-  return localStorage.getItem('fa_token');
+export interface DecodedToken {
+  agencyId?: string;
+  role?: string;
+  exp?: number;
+  iat?: number;
+  [key: string]: unknown;
 }
 
-export function setToken(token: string) {
-  localStorage.setItem('fa_token', token);
+/**
+ * Safely parse a JWT payload on the client side.
+ */
+export function parseJwt(token: string): DecodedToken | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const binaryStr = atob(payload);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    const decodedStr = new TextDecoder().decode(bytes);
+    return JSON.parse(decodedStr);
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Checks if a JWT token has expired or is invalid.
+ * Uses a small 5-second buffer to handle boundary clock skews.
+ */
+export function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+  const decoded = parseJwt(token);
+  if (!decoded) return true;
+  if (typeof decoded.exp !== 'number') return false;
+  return Date.now() >= (decoded.exp * 1000 - 5000);
+}
+
+/**
+ * Returns remaining milliseconds until token expiry, or 0 if expired/invalid.
+ */
+export function getTokenRemainingTime(token: string | null): number {
+  if (!token) return 0;
+  const decoded = parseJwt(token);
+  if (!decoded || typeof decoded.exp !== 'number') return 0;
+  return Math.max(0, decoded.exp * 1000 - Date.now());
 }
 
 export function removeToken() {
   localStorage.removeItem('fa_token');
   localStorage.removeItem('fa_user');
+}
+
+/**
+ * Cleanly logs out the user and redirects to login if the session is expired or terminated.
+ */
+export function logoutSession(reason: 'expired' | 'manual' = 'manual') {
+  removeToken();
+  if (typeof window !== 'undefined') {
+    const isLoginPage = window.location.pathname.startsWith('/login');
+    const isSignupPage = window.location.pathname.startsWith('/signup');
+    const isPublicForm = window.location.pathname.startsWith('/f/');
+
+    if (!isLoginPage && !isSignupPage && !isPublicForm) {
+      const url = reason === 'expired' ? '/login?expired=true' : '/login';
+      window.location.href = url;
+    }
+  }
+}
+
+export function getToken(): string | null {
+  const token = localStorage.getItem('fa_token');
+  if (!token) return null;
+  if (isTokenExpired(token)) {
+    removeToken();
+    return null;
+  }
+  return token;
+}
+
+export function setToken(token: string) {
+  localStorage.setItem('fa_token', token);
 }
 
 export function getUser(): UserProfile | null {
@@ -40,6 +113,8 @@ export function setUser(user: UserProfile) {
 /**
  * Standard HTTP fetch client wrapper for backend calls.
  * Automatically injects authorization header JWT tokens if present in local storage.
+ * Automatically catches 401s and logs out expired sessions so UI does not stay
+ * rendered with stale or incorrect data.
  */
 export async function apiRequest(path: string, method: string = 'GET', body?: any) {
   const token = getToken();
@@ -58,12 +133,23 @@ export async function apiRequest(path: string, method: string = 'GET', body?: an
   });
 
   if (!response.ok) {
+    const isAuthRoute = path.includes('/auth/login') || path.includes('/auth/signup');
+    if (response.status === 401 && !isAuthRoute) {
+      logoutSession('expired');
+      throw new Error('Your session has expired. Please log in again.');
+    }
+
     const errorText = await response.text();
     let errMsg = `Request failed: ${response.statusText}`;
     try {
       const parsed = JSON.parse(errorText);
       errMsg = parsed.error || errMsg;
     } catch (_) {}
+
+    if (errMsg.toLowerCase().includes('expired token') || errMsg.toLowerCase().includes('jwt expired')) {
+      logoutSession('expired');
+    }
+
     throw new Error(errMsg);
   }
 
