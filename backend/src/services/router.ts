@@ -227,7 +227,7 @@ export async function callGroq(
   history: ChatMessage[],
   newMessage: string,
   tools?: ToolDefinition[],
-  modelName: string = 'llama-3.3-70b-versatile'
+  modelName: string = 'openai/gpt-oss-120b'
 ): Promise<RouterResponse> {
   if (!GROQ_API_KEY || GROQ_API_KEY.trim() === '') {
     return callMockRouter(newMessage);
@@ -287,11 +287,10 @@ export async function callGroq(
   }
 
   const candidateModels = [
-    modelName && !modelName.startsWith('gemini') ? modelName : 'llama-3.3-70b-versatile',
-    'llama-3.3-70b-versatile',
-    'llama-3.1-8b-instant',
+    modelName && !modelName.startsWith('gemini') && !modelName.includes('llama') ? modelName : 'openai/gpt-oss-120b',
     'openai/gpt-oss-120b',
-    'openai/gpt-oss-20b'
+    'openai/gpt-oss-20b',
+    'qwen/qwen3.8-27b'
   ].filter((m, idx, arr) => arr.indexOf(m) === idx);
 
   let lastError: any = null;
@@ -391,7 +390,7 @@ export async function routeQuery(
       if (isMock && GROQ_API_KEY) {
         console.info('[Router] Gemini returned fallback placeholder; seamlessly failing over to Groq LPU...');
         try {
-          return await callGroq(systemPrompt, history, newMessage, tools, 'llama-3.3-70b-versatile');
+          return await callGroq(systemPrompt, history, newMessage, tools, 'openai/gpt-oss-120b');
         } catch {}
       }
       return geminiRes;
@@ -399,7 +398,7 @@ export async function routeQuery(
       console.warn('[Router] Gemini failed, failing over to Groq LPU:', err.message);
       if (GROQ_API_KEY) {
         try {
-          return await callGroq(systemPrompt, history, newMessage, tools, 'llama-3.3-70b-versatile');
+          return await callGroq(systemPrompt, history, newMessage, tools, 'openai/gpt-oss-120b');
         } catch (groqErr: any) {
           console.error('[Router] Both Gemini and Groq failover failed:', groqErr.message);
         }

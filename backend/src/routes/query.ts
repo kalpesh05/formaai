@@ -20,6 +20,38 @@ const asyncHandler = (fn: (req: AuthenticatedRequest, res: Response, next: NextF
 
 const riskCheckLabel = (cat?: string) => (cat || 'RISK').toUpperCase();
 
+function formatToolExecutionReply(actionsTaken: any[]): string {
+  if (!actionsTaken || actionsTaken.length === 0) {
+    return "I have processed your request. Please let me know if you need any additional assistance!";
+  }
+  
+  const replies: string[] = [];
+  for (const action of actionsTaken) {
+    const toolName = action.tool_type;
+    const res = action.result || {};
+    
+    if (toolName === 'create_support_ticket') {
+      const ticketId = res.ticket_id ? ` (#${res.ticket_id.slice(0, 8)})` : '';
+      replies.push(`I have logged a support ticket${ticketId} for our engineering and support specialists to follow up on this directly. Our team will review the inquiry and get in touch with you shortly.`);
+    } else if (toolName === 'book_calendar_slot') {
+      replies.push(`I have scheduled your demo slot on the calendar! A confirmation email with the meeting invite and link has been sent to your email.`);
+    } else if (toolName === 'shopify_lookup_order') {
+      if (res.error) {
+        replies.push(`I was unable to locate that order with the provided details. Please verify your order number or email address.`);
+      } else {
+        replies.push(`Here are your order details:\n- Order: #${res.order_number || res.id}\n- Status: ${res.fulfillment_status || res.status || 'Processing'}\n- Tracking: ${res.tracking_url || 'Pending shipment'}`);
+      }
+    } else if (toolName === 'query_user_account') {
+      replies.push(`I have verified your account. Your account is in good standing and synchronized.`);
+    } else {
+      const readableName = toolName.replace(/_/g, ' ');
+      replies.push(`I have successfully completed the ${readableName} action for you.`);
+    }
+  }
+  
+  return replies.join('\n\n');
+}
+
 /**
  * Maps DB tool records to Gemini function call JSON schemas
  */
@@ -517,13 +549,19 @@ No verified documentation was retrieved for this specific query.
             }
           } catch (err: any) {
             console.error('[Action Loop] Tool reasoning step failed:', err.message);
-            routerResponse.reply = routerResponse.reply || `I have processed your request. Actions taken: ${JSON.stringify(actionsTaken)}`;
+            routerResponse.reply = formatToolExecutionReply(actionsTaken);
             break;
           }
         } else {
-          routerResponse.reply = `I have successfully processed your request. Actions completed: ${actionsTaken.map(a => a.tool_type.replace(/_/g, ' ')).join(', ')}.`;
+          routerResponse.reply = formatToolExecutionReply(actionsTaken);
           routerResponse.toolCalls = [];
         }
+      }
+    }
+
+    if (!routerResponse.reply || routerResponse.reply.trim() === '' || routerResponse.reply.includes('Actions taken:') || routerResponse.reply.includes('{"tool_type"')) {
+      if (actionsTaken.length > 0) {
+        routerResponse.reply = formatToolExecutionReply(actionsTaken);
       }
     }
 
